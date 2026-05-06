@@ -1,0 +1,121 @@
+{
+  "entities": {
+    "Teacher": {
+      "title": "Teacher",
+      "description": "User profile for teachers",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "name"]
+    },
+    "Class": {
+      "title": "Class",
+      "description": "A group of students managed by a teacher",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "subject": { "type": "string" },
+        "teacherId": { "type": "string" },
+        "trimesters": { "type": "integer", "description": "Number of trimesters (usually 3)" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "teacherId"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "A student in a class",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "lastName": { "type": "string" },
+        "dni": { "type": "string" },
+        "email": { "type": "string" },
+        "parentEmail": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "classId": { "type": "string" },
+        "teacherId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "lastName", "classId", "teacherId"]
+    },
+    "Assessment": {
+      "title": "Assessment",
+      "description": "An exam or assignment to be graded",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "type": { "type": "string", "enum": ["exam", "work"] },
+        "weight": { "type": "number", "description": "Weight of this assessment in the trimester/final grade (e.g., 0.4 for 40%)" },
+        "trimester": { "type": "integer", "description": "Index of the trimester (1, 2, 3)" },
+        "date": { "type": "string", "format": "date-time" },
+        "classId": { "type": "string" },
+        "teacherId": { "type": "string" },
+        "parentId": { "type": "string", "description": "Reference to a parent category assessment" },
+        "isCategory": { "type": "boolean", "description": "If true, this acts as a group for other assessments" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "type", "weight", "trimester", "classId", "teacherId", "date", "createdAt"]
+    },
+    "Grade": {
+      "title": "Grade",
+      "description": "A score for a student in an assessment",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "assessmentId": { "type": "string" },
+        "classId": { "type": "string" },
+        "teacherId": { "type": "string" },
+        "score": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["studentId", "assessmentId", "score"]
+    },
+    "Attendance": {
+      "title": "Attendance",
+      "description": "Attendance record for a student on a specific date",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "classId": { "type": "string" },
+        "teacherId": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["present", "absent", "late"] }
+      },
+      "required": ["studentId", "classId", "date", "status"]
+    },
+    "Notification": {
+      "title": "Notification/Reminder",
+      "description": "Reminders for teachers or notifications for parents",
+      "type": "object",
+      "properties": {
+        "teacherId": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "target": { "type": "string", "enum": ["teacher", "parent"] },
+        "studentId": { "type": "string", "description": "Optional student reference" },
+        "classId": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "sent": { "type": "boolean" },
+        "notify": { "type": "boolean" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["teacherId", "title", "content", "target", "date", "sent", "read", "createdAt"]
+    }
+  },
+  "firestore": {
+    "teachers": { "schema": "Teacher", "description": "Teacher profiles" },
+    "classes": { "schema": "Class", "description": "Collections of classes" },
+    "students": { "schema": "Student", "description": "Students enrolled in classes" },
+    "assessments": { "schema": "Assessment", "description": "Assignments and exams" },
+    "grades": { "schema": "Grade", "description": "Individual student grades" },
+    "attendance": { "schema": "Attendance", "description": "Daily attendance logs" },
+    "notifications": { "schema": "Notification", "description": "Reminders and parent logs" }
+  }
+}

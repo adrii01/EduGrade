@@ -1,0 +1,188 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isTeacherOwned(data) {
+      return isSignedIn() && data.teacherId == request.auth.uid;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Validation Blueprints ---
+    function isValidTeacher(data) {
+      return data.keys().hasAll(['uid', 'email', 'name', 'createdAt']) &&
+             data.keys().size() == 4 &&
+             data.uid == request.auth.uid &&
+             data.email is string &&
+             data.name is string && data.name.size() <= 100 &&
+             data.createdAt == request.time;
+    }
+
+    function isValidClass(data) {
+      return data.keys().hasAll(['name', 'subject', 'teacherId', 'trimesters', 'createdAt']) &&
+             data.teacherId == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.subject is string &&
+             data.trimesters is int && data.trimesters >= 1 && data.trimesters <= 4 &&
+             data.createdAt == request.time;
+    }
+
+    function isValidStudent(data) {
+      return data.keys().hasAll(['name', 'lastName', 'classId', 'teacherId', 'createdAt']) &&
+             data.teacherId == request.auth.uid &&
+             data.name is string && data.name.size() <= 100 &&
+             data.lastName is string && data.lastName.size() <= 100 &&
+             data.classId is string &&
+             (data.get('email', '') is string) &&
+             (data.get('parentEmail', '') is string) &&
+             (data.get('dni', '') is string) &&
+             (data.get('phone', '') is string) &&
+             (data.get('address', '') is string);
+    }
+
+    function isValidAssessment(data) {
+      return data.keys().hasAll(['title', 'type', 'weight', 'trimester', 'classId', 'teacherId', 'date', 'createdAt']) &&
+             data.teacherId == request.auth.uid &&
+             data.title is string && data.title.size() <= 200 &&
+             data.type in ['exam', 'work'] &&
+             data.weight is number && data.weight >= 0 && data.weight <= 1 &&
+             data.trimester is int &&
+             data.classId is string &&
+             data.date is timestamp &&
+             data.createdAt is timestamp &&
+             (data.get('parentId', null) == null || data.parentId is string) &&
+             (data.get('isCategory', false) == false || data.isCategory is bool) &&
+             (data.get('updatedAt', null) == null || data.updatedAt is timestamp);
+    }
+
+    function isValidGrade(data) {
+      return data.keys().hasAll(['studentId', 'assessmentId', 'classId', 'teacherId', 'score', 'updatedAt']) &&
+             data.teacherId == request.auth.uid &&
+             data.score is number && data.score >= 0 && data.score <= 100 &&
+             data.updatedAt == request.time;
+    }
+
+    function isValidAttendance(data) {
+      return data.keys().hasAll(['studentId', 'classId', 'teacherId', 'date', 'status']) &&
+             data.teacherId == request.auth.uid &&
+             data.status in ['present', 'absent', 'late'] &&
+             data.date is string; // format YYYY-MM-DD
+    }
+
+    function isValidNotification(data) {
+      return data.keys().hasAll(['teacherId', 'title', 'content', 'target', 'date', 'sent', 'notify', 'read', 'createdAt']) &&
+             data.teacherId == request.auth.uid &&
+             data.title is string && data.title.size() <= 200 &&
+             data.content is string && data.content.size() <= 2000 &&
+             data.target in ['teacher', 'parent'] &&
+             data.date is timestamp &&
+             data.sent is bool &&
+             data.notify is bool &&
+             data.read is bool;
+    }
+
+    // --- Core Rules ---
+
+    match /teachers/{userId} {
+      allow get: if isSignedIn() && userId == request.auth.uid;
+      allow create: if isSignedIn() && userId == request.auth.uid && isValidTeacher(incoming());
+      allow update: if isSignedIn() && userId == request.auth.uid && 
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name']) &&
+                    incoming().name is string && incoming().name.size() <= 100 &&
+                    incoming().email == existing().email &&
+                    incoming().createdAt == existing().createdAt;
+    }
+
+    match /classes/{classId} {
+      allow list: if isTeacherOwned(resource.data);
+      allow get: if isTeacherOwned(resource.data);
+      allow create: if isSignedIn() && isValidId(classId) && isValidClass(incoming());
+      allow update: if isTeacherOwned(existing()) && isValidClass(incoming()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'subject', 'trimesters']);
+      allow delete: if isTeacherOwned(existing());
+    }
+
+    match /students/{studentId} {
+      allow list: if isTeacherOwned(resource.data);
+      allow get: if isTeacherOwned(resource.data);
+      allow create: if isSignedIn() && isValidId(studentId) && isValidStudent(incoming()) && 
+                    incoming().createdAt == request.time;
+      allow update: if isTeacherOwned(existing()) && isValidStudent(incoming()) &&
+                    incoming().createdAt == existing().createdAt &&
+                    incoming().teacherId == existing().teacherId &&
+                    (incoming().get('updatedAt', null) == null || incoming().updatedAt == request.time) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'lastName', 'dni', 'email', 'parentEmail', 'phone', 'address', 'classId', 'updatedAt']);
+      allow delete: if isTeacherOwned(existing());
+    }
+
+    match /assessments/{assessmentId} {
+      allow list: if isTeacherOwned(resource.data);
+      allow get: if isTeacherOwned(resource.data);
+      allow create: if isSignedIn() && isValidId(assessmentId) && isValidAssessment(incoming()) &&
+                    incoming().createdAt == request.time;
+      allow update: if isTeacherOwned(existing()) && isValidAssessment(incoming()) &&
+                    incoming().createdAt == existing().createdAt &&
+                    incoming().teacherId == existing().teacherId &&
+                    (incoming().get('updatedAt', null) == null || incoming().updatedAt == request.time) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['title', 'type', 'weight', 'trimester', 'date', 'parentId', 'isCategory', 'updatedAt']);
+      allow delete: if isTeacherOwned(existing());
+    }
+
+    match /grades/{gradeId} {
+      allow list: if isTeacherOwned(resource.data);
+      allow get: if isTeacherOwned(resource.data);
+      allow create: if isSignedIn() && isValidGrade(incoming()); 
+      allow update: if isTeacherOwned(existing()) && isValidGrade(incoming()) &&
+                    incoming().studentId == existing().studentId &&
+                    incoming().assessmentId == existing().assessmentId;
+      allow delete: if isTeacherOwned(existing());
+    }
+
+    match /attendance/{attendanceId} {
+       allow list: if isTeacherOwned(resource.data);
+       allow get: if isTeacherOwned(resource.data);
+       allow create: if isSignedIn() && isValidAttendance(incoming());
+       allow update: if isTeacherOwned(existing()) && isValidAttendance(incoming()) &&
+                     incoming().studentId == existing().studentId &&
+                     incoming().date == existing().date;
+       allow delete: if isTeacherOwned(existing());
+    }
+
+    match /notifications/{notifId} {
+      allow list: if isTeacherOwned(resource.data);
+      allow get: if isTeacherOwned(resource.data);
+      allow create: if isSignedIn() && isValidNotification(incoming()) && 
+                    incoming().createdAt == request.time &&
+                    isValidId(notifId);
+      allow update: if isTeacherOwned(existing()) && 
+                    incoming().createdAt == existing().createdAt &&
+                    incoming().teacherId == existing().teacherId &&
+                    (
+                      // Action: Mark as sent or read (partial update)
+                      (incoming().diff(existing()).affectedKeys().hasOnly(['sent', 'read'])) ||
+                      // Action: Full edit
+                      isValidNotification(incoming())
+                    );
+      allow delete: if isTeacherOwned(existing());
+    }
+  }
+}
