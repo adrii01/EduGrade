@@ -30,11 +30,11 @@ service cloud.firestore {
     // --- Validation Blueprints ---
     function isValidTeacher(data) {
       return data.keys().hasAll(['uid', 'email', 'name', 'createdAt']) &&
-             data.keys().size() == 4 &&
              data.uid == request.auth.uid &&
              data.email is string &&
              data.name is string && data.name.size() <= 100 &&
-             data.createdAt == request.time;
+             data.createdAt == request.time &&
+             (data.get('preferences', null) == null || data.preferences is map);
     }
 
     function isValidClass(data) {
@@ -106,8 +106,12 @@ service cloud.firestore {
       allow get: if isSignedIn() && userId == request.auth.uid;
       allow create: if isSignedIn() && userId == request.auth.uid && isValidTeacher(incoming());
       allow update: if isSignedIn() && userId == request.auth.uid && 
-                    incoming().diff(existing()).affectedKeys().hasOnly(['name']) &&
-                    incoming().name is string && incoming().name.size() <= 100 &&
+                    (
+                      (incoming().diff(existing()).affectedKeys().hasOnly(['name']) && 
+                       incoming().name is string && incoming().name.size() <= 100) ||
+                      (incoming().diff(existing()).affectedKeys().hasOnly(['preferences']) &&
+                       incoming().preferences is map)
+                    ) &&
                     incoming().email == existing().email &&
                     incoming().createdAt == existing().createdAt;
     }

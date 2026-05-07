@@ -15,8 +15,11 @@ import {
   BookOpenCheck,
   CalendarDays,
   Layers,
-  ChevronRight
+  ChevronRight,
+  HelpCircle,
+  Lightbulb
 } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Dialog, 
@@ -31,7 +34,9 @@ import {
   SelectContent, 
   SelectItem, 
   SelectTrigger, 
-  SelectValue 
+  SelectValue,
+  SelectGroup,
+  SelectLabel
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -39,8 +44,22 @@ import { format } from 'date-fns';
 export default function AssessmentManager({ classId, teacherId }: { classId: string, teacherId: string }) {
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const hasSeen = localStorage.getItem('hasSeenAssessmentTutorial');
+    if (!hasSeen) {
+      setShowTutorial(true);
+    }
+  }, []);
+
+  const closeTutorial = () => {
+    setShowTutorial(false);
+    localStorage.setItem('hasSeenAssessmentTutorial', 'true');
+  };
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [formData, setFormData] = useState({
     title: '',
     type: 'exam' as 'exam' | 'work',
@@ -171,87 +190,130 @@ export default function AssessmentManager({ classId, teacherId }: { classId: str
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-1">
         <div>
-          <h2 className="text-xl sm:text-2xl font-display font-bold font-black text-slate-900 tracking-tight">Plan de Evaluación</h2>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium tracking-tight">Define exámenes y trabajos para cada trimestre.</p>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl sm:text-2xl font-display font-bold font-black text-foreground tracking-tight">Plan de Evaluación</h2>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full"
+              onClick={() => setShowTutorial(true)}
+            >
+              <HelpCircle className="w-5 h-5" />
+            </Button>
+          </div>
+          <p className="text-xs sm:text-sm text-muted-foreground font-medium tracking-tight">Define exámenes y trabajos para cada trimestre.</p>
         </div>
-        <Dialog open={isOpen} onOpenChange={(open) => {
-          setIsOpen(open);
-          if (!open) {
-            setEditingId(null);
-            setFormData({ 
-              title: '', 
-              type: 'exam', 
-              weight: '20', 
-              trimester: '1', 
-              date: format(new Date(), 'yyyy-MM-dd'),
-              isCategory: false,
-              parentId: 'none'
-            });
-          }
-        }}>
-          <DialogTrigger 
-            nativeButton={true}
-            render={
-              <Button 
-                size="sm" 
-                className="w-full sm:w-auto rounded-xl bg-indigo-600 shadow-lg shadow-indigo-200" 
-                onClick={() => {
-                  setEditingId(null);
-                  setFormData({ 
-                    title: '', 
-                    type: 'exam', 
-                    weight: '20', 
-                    trimester: '1', 
-                    date: format(new Date(), 'yyyy-MM-dd'),
-                    isCategory: false,
-                    parentId: 'none'
-                  });
-                }}
-              />
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-full sm:w-[200px] h-9">
+              <SelectValue placeholder="Filtrar por categoría" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Ver Todas</SelectItem>
+              <SelectGroup>
+                <SelectLabel className="text-xs font-bold text-muted-foreground">Por Trimestre</SelectLabel>
+                <SelectItem value="tri_1">Solo 1º Trimestre</SelectItem>
+                <SelectItem value="tri_2">Solo 2º Trimestre</SelectItem>
+                <SelectItem value="tri_3">Solo 3º Trimestre</SelectItem>
+              </SelectGroup>
+              {[1, 2, 3].map(tri => {
+                const cats = assessments.filter(a => a.isCategory && a.trimester === tri);
+                if (cats.length === 0) return null;
+                return (
+                  <SelectGroup key={tri}>
+                    <SelectLabel className="text-xs font-bold text-muted-foreground">{tri}º Trimestre - Categorías</SelectLabel>
+                    {cats.sort((a, b) => a.title.localeCompare(b.title)).map(cat => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.title}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                );
+              })}
+            </SelectContent>
+          </Select>
+  
+          <Dialog open={isOpen} onOpenChange={(open) => {
+            setIsOpen(open);
+            if (!open) {
+              setEditingId(null);
+              setFormData({ 
+                title: '', 
+                type: 'exam', 
+                weight: '20', 
+                trimester: '1', 
+                date: format(new Date(), 'yyyy-MM-dd'),
+                isCategory: false,
+                parentId: 'none'
+              });
             }
-          >
-            <Plus className="w-4 h-4 mr-2" /> Nueva Evaluación
-          </DialogTrigger>
-          <DialogContent>
+          }}>
+            <DialogTrigger 
+              nativeButton={true}
+              render={
+                <Button 
+                  size="sm" 
+                  className="w-full sm:w-auto rounded-xl bg-primary shadow-lg shadow-primary/20" 
+                  onClick={() => {
+                    setEditingId(null);
+                    setFormData({ 
+                      title: '', 
+                      type: 'exam', 
+                      weight: '20', 
+                      trimester: '1', 
+                      date: format(new Date(), 'yyyy-MM-dd'),
+                      isCategory: false,
+                      parentId: 'none'
+                    });
+                  }}
+                />
+              }
+            >
+              <Plus className="w-4 h-4 mr-2" /> Nueva Evaluación
+            </DialogTrigger>
+            <DialogContent>
             <DialogHeader><DialogTitle>{editingId ? 'Editar Evaluación' : 'Configurar Evaluación'}</DialogTitle></DialogHeader>
             <div className="space-y-4 py-4">
-              <div className="flex items-center space-x-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                <Checkbox 
-                  id="isCategory" 
-                  checked={formData.isCategory} 
-                  disabled={!!editingId} // Disable changing category status on edit
-                  onCheckedChange={(checked) => setFormData({...formData, isCategory: !!checked, parentId: ''})} 
-                />
-                <Label htmlFor="isCategory" className={`text-sm font-bold cursor-pointer ${editingId ? 'opacity-50' : ''}`}>
-                  Es una Categoría (Agrupa otras pruebas)
-                </Label>
-              </div>
+              {!editingId ? (
+                <Tabs value={formData.isCategory ? "category" : "assessment"} onValueChange={(val) => setFormData({...formData, isCategory: val === 'category', parentId: 'none'})}>
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="assessment">Prueba Individual</TabsTrigger>
+                    <TabsTrigger value="category">Categoría (Agrupador)</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              ) : (
+                <div className="flex justify-center">
+                  <Badge variant="outline" className="px-3 py-1 font-bold">
+                    {formData.isCategory ? "Editando Categoría" : "Editando Prueba Individual"}
+                  </Badge>
+                </div>
+              )}
 
               <div className="space-y-2">
-                <Label>Título / Descripción</Label>
-                <Input value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder={formData.isCategory ? "Ej: Exámenes" : "Ej: Examen Unidad 1"} />
+                <Label>{formData.isCategory ? "Nombre de la Categoría" : "Nombre de la Prueba"}</Label>
+                <Input value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder={formData.isCategory ? "Ej: Exámenes, Trabajos, Actitud..." : "Ej: Examen Tema 1, Proyecto Final..."} />
               </div>
               
               {!formData.isCategory && (
                 <div className="space-y-2">
-                  <Label>Categoría Padre (Opcional)</Label>
+                  <Label>Agrupar dentro de (Opcional)</Label>
                   <Select value={formData.parentId} onValueChange={(v) => setFormData({...formData, parentId: v})}>
                     <SelectTrigger>
                       <SelectValue placeholder="Ninguna (Prueba independiente)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Sin categoría</SelectItem>
+                      <SelectItem value="none">Sin agrupar (Prueba independiente)</SelectItem>
                       {assessments
                         .filter(a => a.isCategory && a.trimester === Number(formData.trimester))
                         .map(cat => {
                           const currentWeightUsed = assessments
-                            .filter(child => child.parentId === cat.id)
+                            .filter(child => child.parentId === cat.id && child.id !== editingId)
                             .reduce((sum, child) => sum + (child.weight * 100), 0);
                           const remaining = (cat.weight * 100) - currentWeightUsed;
                           
                           return (
                             <SelectItem key={cat.id} value={cat.id}>
-                              {cat.title} (Cupo: {cat.weight * 100}% - Queda: {remaining.toFixed(1)}%)
+                              {cat.title} (Cupo: {cat.weight * 100}% - Disponible: {remaining.toFixed(1)}%)
                             </SelectItem>
                           );
                         })
@@ -259,8 +321,8 @@ export default function AssessmentManager({ classId, teacherId }: { classId: str
                     </SelectContent>
                   </Select>
                   {formData.parentId && formData.parentId !== 'none' && (
-                    <p className="text-[10px] text-indigo-600 font-medium">
-                      * Esta prueba restará porcentaje del total de la categoría seleccionada.
+                    <p className="text-[10px] text-primary font-medium">
+                      * El peso de esta prueba se calculará sobre el total de la categoría seleccionada.
                     </p>
                   )}
                 </div>
@@ -310,10 +372,20 @@ export default function AssessmentManager({ classId, teacherId }: { classId: str
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {[1, 2, 3].map(t => (
+        {[1, 2, 3]
+          .filter(t => {
+            if (categoryFilter === 'all') return true;
+            if (categoryFilter === `tri_${t}`) return true;
+            if (categoryFilter.startsWith('tri_')) return false;
+            // It's a category
+            const cat = assessments.find(a => a.id === categoryFilter);
+            return cat && cat.trimester === t;
+          })
+          .map(t => (
           <div key={t} className="space-y-4">
             <h3 className="font-display font-bold text-lg flex items-center gap-2 border-l-4 border-primary pl-3">
               {t}º Trimestre
@@ -325,26 +397,40 @@ export default function AssessmentManager({ classId, teacherId }: { classId: str
             </h3>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
-              {(grouped[t] || [])
-                .filter(a => !a.parentId || a.parentId === 'none') // Show top level first
-                .sort((a, b) => (a.isCategory === b.isCategory) ? 0 : a.isCategory ? -1 : 1)
-                .map(assessment => {
+              {(() => {
+                const filteredList = (grouped[t] || [])
+                  .filter(a => !a.parentId || a.parentId === 'none')
+                  .filter(a => {
+                    if (categoryFilter === 'all' || categoryFilter.startsWith('tri_')) return true;
+                    return a.id === categoryFilter;
+                  })
+                  .sort((a, b) => (a.isCategory === b.isCategory) ? 0 : a.isCategory ? -1 : 1);
+
+                if (filteredList.length === 0) {
+                  return (
+                    <div className="h-20 border border-dashed rounded-xl flex items-center justify-center text-muted-foreground text-xs">
+                      Sin evaluaciones {categoryFilter !== 'all' ? 'que coincidan con el filtro' : ''}
+                    </div>
+                  );
+                }
+
+                return filteredList.map(assessment => {
                   const children = assessments.filter(child => child.parentId === assessment.id);
                   const childrenWeightSum = children.reduce((sum, child) => sum + (child.weight * 100), 0);
                   const isFull = Math.abs(childrenWeightSum - (assessment.weight * 100)) < 0.1;
 
                   return (
                     <div key={assessment.id} className="space-y-2">
-                      <Card className={`relative group overflow-hidden border-slate-200 shadow-sm hover:shadow-md transition-shadow ${assessment.isCategory ? 'bg-indigo-50/30 border-dashed border-indigo-200' : ''}`}>
+                      <Card className={`relative group overflow-hidden border-border shadow-sm hover:shadow-md transition-shadow ${assessment.isCategory ? 'bg-primary/5 border-dashed border-primary/20' : ''}`}>
                         <CardContent className="p-3 sm:p-4">
                           <div className="flex justify-between items-start mb-1 sm:mb-2 text-xs sm:text-sm">
                             <div className="flex items-center gap-2">
                               {assessment.isCategory ? (
-                                <Layers className="w-3.5 h-3.5 text-indigo-500" />
+                                <Layers className="w-3.5 h-3.5 text-primary" />
                               ) : (
                                 assessment.type === 'exam' ? <Target className="w-3.5 h-3.5 text-primary" /> : <BookOpenCheck className="w-3.5 h-3.5 text-green-500" />
                               )}
-                              <span className={`font-bold tracking-tight line-clamp-1 ${assessment.isCategory ? 'text-indigo-900 uppercase text-[10px]' : ''}`}>
+                              <span className={`font-bold tracking-tight line-clamp-1 ${assessment.isCategory ? 'text-primary uppercase text-[10px]' : ''}`}>
                                 {assessment.title}
                               </span>
                             </div>
@@ -352,7 +438,7 @@ export default function AssessmentManager({ classId, teacherId }: { classId: str
                               <Button 
                                 variant="ghost" 
                                 size="icon" 
-                                className="h-8 w-8 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 shrink-0 transition-colors"
+                                className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 shrink-0 transition-colors"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleEdit(assessment);
@@ -363,7 +449,7 @@ export default function AssessmentManager({ classId, teacherId }: { classId: str
                               <Button 
                                 variant="ghost" 
                                 size="icon" 
-                                className="h-8 w-8 text-slate-400 hover:text-destructive hover:bg-destructive/10 shrink-0 transition-colors"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0 transition-colors"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setDeleteId(assessment.id);
@@ -374,16 +460,16 @@ export default function AssessmentManager({ classId, teacherId }: { classId: str
                             </div>
                           </div>
                           <div className="flex items-center justify-between mt-3">
-                              <div className="flex items-center gap-1 text-[9px] sm:text-[10px] text-slate-400">
+                              <div className="flex items-center gap-1 text-[9px] sm:text-[10px] text-muted-foreground">
                                   <CalendarDays className="w-3 h-3" />
                                   <span>{assessment.date instanceof Timestamp ? format(assessment.date.toDate(), 'dd/MM/yyyy') : '-'}</span>
                               </div>
                               <div className="flex flex-col items-end gap-1">
-                                <Badge variant="outline" className={`text-[10px] px-1.5 h-5 ${assessment.isCategory ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-slate-50'}`}>
+                                <Badge variant="outline" className={`text-[10px] px-1.5 h-5 ${assessment.isCategory ? 'bg-primary/20 text-primary border-primary/20' : 'bg-muted'}`}>
                                     {assessment.weight * 100}%
                                 </Badge>
                                 {assessment.isCategory && (
-                                  <span className={`text-[9px] font-bold ${isFull ? 'text-green-600' : 'text-amber-600'}`}>
+                                  <span className={`text-[9px] font-bold ${isFull ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
                                     {childrenWeightSum.toFixed(0)}% / {(assessment.weight * 100).toFixed(0)}% ocupado
                                   </span>
                                 )}
@@ -393,13 +479,13 @@ export default function AssessmentManager({ classId, teacherId }: { classId: str
                       </Card>
 
                       {children.length > 0 && (
-                        <div className="pl-6 space-y-2 border-l-2 border-slate-100 ml-4">
+                        <div className="pl-6 space-y-2 border-l-2 border-border ml-4">
                           {children.map(child => (
-                            <Card key={child.id} className="relative group overflow-hidden border-slate-100 shadow-none hover:bg-white/50 transition-colors">
+                            <Card key={child.id} className="relative group overflow-hidden border-border shadow-none hover:bg-card/50 transition-colors">
                               <CardContent className="p-2 sm:p-3">
                                 <div className="flex justify-between items-start mb-1 text-[11px] sm:text-xs">
                                   <div className="flex items-center gap-2">
-                                    <ChevronRight className="w-3 h-3 text-slate-300" />
+                                    <ChevronRight className="w-3 h-3 text-muted-foreground/70" />
                                     {child.type === 'exam' ? <Target className="w-3 h-3 text-primary/70" /> : <BookOpenCheck className="w-3 h-3 text-green-500/70" />}
                                     <span className="font-medium tracking-tight line-clamp-1">{child.title}</span>
                                   </div>
@@ -407,7 +493,7 @@ export default function AssessmentManager({ classId, teacherId }: { classId: str
                                     <Button 
                                       variant="ghost" 
                                       size="icon" 
-                                      className="h-7 w-7 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 shrink-0 transition-colors"
+                                      className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10 shrink-0 transition-colors"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleEdit(child);
@@ -418,7 +504,7 @@ export default function AssessmentManager({ classId, teacherId }: { classId: str
                                     <Button 
                                       variant="ghost" 
                                       size="icon" 
-                                      className="h-7 w-7 text-slate-400 hover:text-destructive hover:bg-destructive/10 shrink-0 transition-colors"
+                                      className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0 transition-colors"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setDeleteId(child.id);
@@ -429,10 +515,10 @@ export default function AssessmentManager({ classId, teacherId }: { classId: str
                                   </div>
                                 </div>
                                 <div className="flex items-center justify-between mt-2">
-                                    <span className="text-[8px] text-slate-400">
+                                    <span className="text-[8px] text-muted-foreground">
                                       {child.date instanceof Timestamp ? format(child.date.toDate(), 'dd/MM') : '-'}
                                     </span>
-                                    <Badge variant="secondary" className="text-[8px] h-4 px-1 bg-slate-100 text-slate-500">
+                                    <Badge variant="secondary" className="text-[8px] h-4 px-1 bg-slate-100 text-muted-foreground">
                                         {child.weight * 100}%
                                     </Badge>
                                 </div>
@@ -443,12 +529,8 @@ export default function AssessmentManager({ classId, teacherId }: { classId: str
                       )}
                     </div>
                   );
-                })}
-              {(grouped[t] || []).length === 0 && (
-                <div className="h-20 border border-dashed rounded-xl flex items-center justify-center text-slate-400 text-xs">
-                  Sin evaluaciones
-                </div>
-              )}
+                })
+              })()}
             </div>
           </div>
         ))}
@@ -458,12 +540,64 @@ export default function AssessmentManager({ classId, teacherId }: { classId: str
           <DialogHeader>
             <DialogTitle>¿Confirmar eliminación?</DialogTitle>
           </DialogHeader>
-          <div className="py-4 text-sm text-slate-500">
+          <div className="py-4 text-sm text-muted-foreground">
             Esta acción no se puede deshacer. Los datos de notas asociados pueden quedar huérfanos.
           </div>
           <DialogFooter className="flex gap-2">
             <Button variant="outline" onClick={() => setDeleteId(null)}>Cancelar</Button>
             <Button variant="destructive" onClick={handleDelete}>Eliminar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={showTutorial} onOpenChange={closeTutorial}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="flex items-center gap-2 text-2xl">
+              <span className="p-2 bg-primary/10 rounded-xl">
+                <HelpCircle className="w-6 h-6 text-primary" />
+              </span>
+              Guía de Evaluaciones
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            <p className="text-muted-foreground text-sm">
+              Bienvenido a la sección de configuración de notas. Aquí puedes estructurar cómo se evaluará cada trimestre. Hay dos tipos principales de elementos que puedes crear:
+            </p>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-muted/50 p-4 rounded-xl border border-border">
+                <div className="flex items-center gap-2 mb-2 font-bold text-base">
+                  <Target className="w-5 h-5 text-blue-500" />
+                  Prueba Individual
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Son las tareas, exámenes o controles específicos (ej. "Examen Tema 1", "Trabajo en grupo"). Tienen una fecha y un tipo (Examen o Trabajo).
+                </p>
+              </div>
+              <div className="bg-muted/50 p-4 rounded-xl border border-border">
+                <div className="flex items-center gap-2 mb-2 font-bold text-base">
+                  <Layers className="w-5 h-5 text-purple-500" />
+                  Categoría
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Son agrupadores lógicos (ej. "Exámenes", "Trabajos diarios", "Actitud"). No tienen notas por sí mismas, pero agrupan varias Pruebas Individuales.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-primary/5 border border-primary/20 p-4 rounded-xl flex gap-3">
+              <Lightbulb className="w-6 h-6 text-primary shrink-0" />
+              <div>
+                <h4 className="font-bold text-sm mb-1 text-primary">¿Cómo configurar el peso (%)?</h4>
+                <div className="text-xs text-muted-foreground space-y-2">
+                  <p>Si una Prueba está <strong>suelta</strong>, su porcentaje se calcula sobre el total del trimestre.</p>
+                  <p>Si metes varias pruebas <strong>dentro de una Categoría</strong>, primero le das un peso a la categoría (ej. 60% Exámenes), y luego decides cuánto vale cada prueba dentro de ese 100% interno de la categoría.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="mt-6">
+            <Button className="w-full sm:w-auto" onClick={closeTutorial}>¡Entendido, empezar!</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/src/context/AuthContext';
+import { ThemeProvider } from '@/src/context/ThemeContext';
 import { Toaster } from '@/components/ui/sonner';
 import Landing from '@/src/pages/Landing';
 import Dashboard from '@/src/pages/Dashboard';
@@ -40,7 +41,7 @@ function AppContent() {
         } />
         <Route path="/reminders" element={
           <ProtectedRoute>
-            <Reminders />
+            <Dashboard />
           </ProtectedRoute>
         } />
       </Routes>
@@ -51,10 +52,12 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <AppContent />
-        <Toaster position="top-right" />
-      </BrowserRouter>
+      <ThemeProvider>
+        <BrowserRouter>
+          <AppContent />
+          <Toaster position="top-right" />
+        </BrowserRouter>
+      </ThemeProvider>
     </AuthProvider>
   );
 }

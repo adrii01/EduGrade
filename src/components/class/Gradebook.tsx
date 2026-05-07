@@ -22,10 +22,13 @@ import {
   SelectContent, 
   SelectItem, 
   SelectTrigger, 
-  SelectValue 
+  SelectValue,
+  SelectGroup,
+  SelectLabel
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { BarChart3, CheckCircle2, GraduationCap, Search, Download } from 'lucide-react';
+import { BarChart3, CheckCircle2, GraduationCap, Search, Download, HelpCircle, Lightbulb, Target, Layers } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 
 function GradeInput({ 
   studentId, 
@@ -47,7 +50,9 @@ function GradeInput({
   return (
     <Input 
       type="number"
-      className="w-12 sm:w-16 h-7 sm:h-8 text-center text-[10px] sm:text-xs font-mono rounded-md border-slate-200"
+      className={`w-12 sm:w-16 h-7 sm:h-8 text-center text-[10px] sm:text-xs font-mono font-bold rounded-md border-border transition-colors ${
+        val === '' ? '' : Number(val) >= 5 ? 'text-green-700 bg-green-500/10 dark:text-green-400' : 'text-red-700 bg-red-500/10 dark:text-red-400'
+      }`}
       value={val}
       onChange={(e) => setVal(e.target.value)}
       onBlur={() => {
@@ -66,6 +71,20 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
   const [grades, setGrades] = useState<Record<string, number>>({}); // key: studentId_assessmentId
   const [loading, setLoading] = useState(true);
   const [trimester, setTrimester] = useState('1');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [showTutorial, setShowTutorial] = useState(false);
+
+  useEffect(() => {
+    const hasSeen = localStorage.getItem('hasSeenGradebookTutorial');
+    if (!hasSeen) {
+      setShowTutorial(true);
+    }
+  }, []);
+
+  const closeTutorial = () => {
+    setShowTutorial(false);
+    localStorage.setItem('hasSeenGradebookTutorial', 'true');
+  };
 
   const fetchData = async () => {
     try {
@@ -128,23 +147,40 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
   };
 
   const filteredAssessments = React.useMemo(() => {
-    return assessments
-      .filter(a => trimester !== 'all' && a.trimester === Number(trimester))
-      .sort((a,b) => {
-        // Sort: Parents first, then their children
-        if (a.id === b.parentId) return -1;
-        if (b.id === a.parentId) return 1;
-        if (a.parentId && !b.parentId) {
-          if (a.parentId === b.id) return 1;
-          return a.parentId.localeCompare(b.id);
-        }
-        if (!a.parentId && b.parentId) {
-          if (b.parentId === a.id) return -1;
-          return a.id.localeCompare(b.parentId);
-        }
-        return 0;
+    let arr = assessments.filter(a => trimester !== 'all' && a.trimester === Number(trimester));
+    
+    if (categoryFilter !== 'all') {
+      arr = arr.filter(a => {
+        return a.id === categoryFilter || a.parentId === categoryFilter;
       });
-  }, [assessments, trimester]);
+    }
+
+    return arr.sort((a,b) => {
+      // 1. Group by type
+      if (a.type !== b.type) {
+        return a.type.localeCompare(b.type);
+      }
+      
+      // 2. Identify top-level parents
+      const parentA = a.parentId && a.parentId !== 'none' ? a.parentId : a.id;
+      const parentB = b.parentId && b.parentId !== 'none' ? b.parentId : b.id;
+      
+      if (parentA !== parentB) {
+        // They belong to different groups/independent assessments.
+        // Sort by the title of their parent (or themselves if independent)
+        const parentDocA = assessments.find(x => x.id === parentA) || a;
+        const parentDocB = assessments.find(x => x.id === parentB) || b;
+        return parentDocA.title.localeCompare(parentDocB.title);
+      }
+      
+      // 3. They belong to the same group. Category goes first.
+      if (a.isCategory && !b.isCategory) return -1;
+      if (!a.isCategory && b.isCategory) return 1;
+      
+      // 4. Siblings -> sort by title
+      return a.title.localeCompare(b.title);
+    });
+  }, [assessments, trimester, categoryFilter]);
 
   const studentGrades = React.useMemo(() => {
     const map: Record<string, number | null> = {};
@@ -562,54 +598,64 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
     <div className="space-y-6">
       {stats && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card className="bg-white/60 backdrop-blur-sm border-slate-200">
+          <Card className="bg-card/60 backdrop-blur-sm border-border">
             <CardContent className="p-4 flex items-center gap-4">
-              <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-                <BarChart3 className="w-5 h-5 text-indigo-600" />
+              <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center">
+                <BarChart3 className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Media Clase</p>
-                <p className="text-xl font-display font-bold text-slate-900">{stats.avg.toFixed(2)}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Media Clase</p>
+                <p className="text-xl font-display font-bold text-foreground">{stats.avg.toFixed(2)}</p>
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-white/60 backdrop-blur-sm border-slate-200">
+          <Card className="bg-card/60 backdrop-blur-sm border-border">
             <CardContent className="p-4 flex items-center gap-4">
-              <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
+              <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center">
+                <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tasa Aprobados</p>
-                <p className="text-xl font-display font-bold text-slate-900">{stats.passRate.toFixed(0)}%</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Tasa Aprobados</p>
+                <p className="text-xl font-display font-bold text-foreground">{stats.passRate.toFixed(0)}%</p>
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-white/60 backdrop-blur-sm border-amber-200 shadow-lg shadow-amber-500/10 relative overflow-hidden group">
+          <Card className="bg-card/60 backdrop-blur-sm border-amber-500/30 shadow-lg shadow-amber-500/10 relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-700" />
             <CardContent className="p-4 flex items-center gap-4 relative z-10">
-              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center shadow-inner shadow-amber-200/50">
-                <GraduationCap className="w-5 h-5 text-amber-600" />
+              <div className="w-10 h-10 bg-amber-500/20 rounded-xl flex items-center justify-center shadow-inner shadow-amber-500/20">
+                <GraduationCap className="w-5 h-5 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600/70">Mejor Puntuación</p>
-                <p className="text-xl font-display font-bold text-slate-900">{stats.max.toFixed(2)}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600/70 dark:text-amber-400/70">Mejor Puntuación</p>
+                <p className="text-xl font-display font-bold text-foreground">{stats.max.toFixed(2)}</p>
               </div>
             </CardContent>
           </Card>
         </div>
       )}
 
-      <Card className="rounded-3xl border-slate-200 shadow-sm overflow-hidden">
-        <CardHeader className="flex flex-col lg:flex-row justify-between items-start lg:items-center bg-white border-b py-4 sm:py-6 px-4 sm:px-8 gap-4">
+      <Card className="rounded-3xl border-border shadow-sm overflow-hidden">
+        <CardHeader className="flex flex-col lg:flex-row justify-between items-start lg:items-center bg-card border-b py-4 sm:py-6 px-4 sm:px-8 gap-4">
           <div className="flex-1 w-full">
-            <CardTitle className="font-display font-bold text-xl">Cuaderno de Notas</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="font-display font-bold text-xl">Cuaderno de Notas</CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full"
+                onClick={() => setShowTutorial(true)}
+              >
+                <HelpCircle className="w-5 h-5" />
+              </Button>
+            </div>
             <div className="relative mt-3 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input 
                 placeholder="Buscar alumno..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-10 bg-slate-50 border-slate-200 rounded-xl focus:bg-white transition-all text-sm w-full"
+                className="pl-9 h-10 bg-muted border-border rounded-xl focus:bg-card transition-all text-sm w-full"
               />
             </div>
           </div>
@@ -617,14 +663,32 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
               <Button 
                 onClick={exportToExcel}
                 variant="outline"
-                className="rounded-full gap-2 text-xs border-indigo-200 text-indigo-600 hover:bg-white hover:border-indigo-400 transition-all font-bold"
+                className="rounded-full gap-2 text-xs border-primary/20 text-primary hover:bg-card hover:border-primary/40 transition-all font-bold"
               >
                 <Download className="w-3.5 h-3.5" />
                 Planilla General
               </Button>
-              <Label className="text-[10px] sm:text-xs uppercase tracking-wider text-slate-400 font-bold whitespace-nowrap">Ver:</Label>
-              <Select value={trimester} onValueChange={setTrimester}>
-                  <SelectTrigger className="w-full sm:w-[180px] rounded-full h-8 sm:h-10 text-xs sm:text-sm">
+              <Label className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground font-bold whitespace-nowrap">Ver:</Label>
+              {trimester !== 'all' && (
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="w-full sm:w-[150px] rounded-full h-8 sm:h-10 text-xs sm:text-sm">
+                    <SelectValue placeholder="Categoría" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las notas</SelectItem>
+                    {assessments
+                      .filter(a => a.isCategory && a.trimester === Number(trimester))
+                      .sort((a, b) => a.title.localeCompare(b.title))
+                      .map(cat => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          {cat.title}
+                        </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <Select value={trimester} onValueChange={(v) => { setTrimester(v); setCategoryFilter('all'); }}>
+                  <SelectTrigger className="w-full sm:w-[150px] rounded-full h-8 sm:h-10 text-xs sm:text-sm">
                       <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -640,8 +704,8 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
           <ScrollArea className="w-full">
             <Table className="min-w-[800px]">
               <TableHeader>
-                <TableRow className="bg-slate-50/50">
-                  <TableHead className="px-4 sm:px-8 font-bold border-r w-[130px] sm:w-[250px] sticky left-0 bg-slate-50 z-20 text-xs sm:text-sm shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Alumno</TableHead>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="px-4 sm:px-8 font-bold border-r w-[130px] sm:w-[250px] sticky left-0 bg-muted z-20 text-xs sm:text-sm shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Alumno</TableHead>
                   {trimester === 'all' ? (
                     <>
                       <TableHead className="text-center font-bold">1º Trim</TableHead>
@@ -650,19 +714,19 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
                     </>
                   ) : (
                     filteredAssessments.map(a => (
-                      <TableHead key={a.id} className={`text-center min-w-[120px] ${a.isCategory ? 'bg-indigo-50/50' : 'bg-slate-50/50'} ${a.parentId ? 'border-l border-slate-100' : ''}`}>
+                      <TableHead key={a.id} className={`text-center min-w-[120px] ${a.isCategory ? 'bg-primary/5' : 'bg-muted/50'} ${a.parentId ? 'border-l border-border' : ''}`}>
                         <div className="flex flex-col items-center">
-                          <span className="text-[10px] uppercase font-bold text-slate-400">
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground">
                             {(a.weight * 100).toFixed(0)}% {a.parentId ? '(Peso rel.)' : '(Peso total)'}
                           </span>
-                          <span className={`text-xs font-bold leading-tight ${a.isCategory ? 'text-indigo-700' : ''}`}>
+                          <span className={`text-xs font-bold leading-tight ${a.isCategory ? 'text-primary' : ''}`}>
                             {a.title}
                           </span>
                         </div>
                       </TableHead>
                     ))
                   )}
-                  <TableHead className="text-center font-bold bg-indigo-50 text-indigo-700 sm:sticky sm:right-0 sm:z-20 w-[80px] sm:w-[120px]">
+                  <TableHead className="text-center font-bold bg-card sm:bg-card text-primary sm:sticky sm:right-0 sm:z-20 w-[80px] sm:w-[120px] shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                     {trimester === 'all' ? 'Nota Final' : 'Media Trim.'}
                   </TableHead>
                 </TableRow>
@@ -670,19 +734,19 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
               <TableBody>
                 {filteredStudents.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={trimester === 'all' ? 5 : filteredAssessments.length + 2} className="h-40 text-center text-slate-400 italic">
+                    <TableCell colSpan={trimester === 'all' ? 5 : filteredAssessments.length + 2} className="h-40 text-center text-muted-foreground italic">
                       No se encontraron alumnos.
                     </TableCell>
                   </TableRow>
                 ) : filteredStudents.map(student => (
-                  <TableRow key={student.id} className="hover:bg-slate-50/30 transition-colors group">
-                    <TableCell className="px-4 sm:px-8 font-medium border-r sticky left-0 bg-white group-hover:bg-slate-50 z-10 text-xs sm:text-sm max-w-[130px] sm:max-w-none truncate shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                  <TableRow key={student.id} className="hover:bg-muted/30 transition-colors group">
+                    <TableCell className="px-4 sm:px-8 font-medium border-r sticky left-0 bg-card group-hover:bg-muted z-10 text-xs sm:text-sm max-w-[130px] sm:max-w-none truncate shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                       <div className="flex items-center gap-3">
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => exportStudentExcel(student)}
-                          className="h-7 w-7 rounded-lg text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 shrink-0"
+                          className="h-7 w-7 rounded-lg text-primary/80 hover:text-primary hover:bg-primary/10 shrink-0"
                           title="Descargar boletín Excel"
                         >
                           <Download className="w-4 h-4" />
@@ -695,15 +759,19 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
                     
                     {trimester === 'all' ? (
                       <>
-                        <TableCell className="text-center font-mono text-[10px] sm:text-sm border-r">
-                          {calculateTrimesterAvg(student.id, 1)?.toFixed(2) || '-'}
-                        </TableCell>
-                        <TableCell className="text-center font-mono text-[10px] sm:text-sm border-r">
-                          {calculateTrimesterAvg(student.id, 2)?.toFixed(2) || '-'}
-                        </TableCell>
-                        <TableCell className="text-center font-mono text-[10px] sm:text-sm border-r">
-                          {calculateTrimesterAvg(student.id, 3)?.toFixed(2) || '-'}
-                        </TableCell>
+                        {[1, 2, 3].map(tri => {
+                          const avg = calculateTrimesterAvg(student.id, tri);
+                          return (
+                            <TableCell key={tri} className="text-center font-mono text-[10px] sm:text-sm border-r">
+                              <span className={`px-2 py-1 rounded-md font-bold ${
+                                avg === null ? 'text-muted-foreground' :
+                                avg >= 5 ? 'bg-green-500/10 text-green-700 dark:text-green-400' : 'bg-red-500/10 text-red-700 dark:text-red-400'
+                              }`}>
+                                {avg !== null ? avg.toFixed(2) : '-'}
+                              </span>
+                            </TableCell>
+                          );
+                        })}
                       </>
                     ) : (
                       filteredAssessments.map(a => {
@@ -711,11 +779,14 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
                         const hasChildren = assessments.some(child => child.parentId === a.id);
                         
                         return (
-                          <TableCell key={a.id} className={`p-1 sm:p-2 border-r ${a.isCategory ? 'bg-indigo-50/20' : ''}`}>
+                          <TableCell key={a.id} className={`p-1 sm:p-2 border-r ${a.isCategory ? 'bg-primary/5' : ''}`}>
                               <div className="flex justify-center">
                                 {hasChildren ? (
-                                  <div className="text-center">
-                                    <span className="text-[10px] font-mono font-bold text-indigo-600">
+                                  <div className="text-center flex justify-center">
+                                    <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md ${
+                                      score === null ? 'text-muted-foreground' :
+                                      score >= 5 ? 'bg-green-500/10 text-green-700 dark:text-green-400' : 'bg-red-500/10 text-red-700 dark:text-red-400'
+                                    }`}>
                                       {score !== null ? score.toFixed(1) : '-'}
                                     </span>
                                   </div>
@@ -733,10 +804,14 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
                       })
                     )}
                     
-                    <TableCell className="text-center font-bold bg-indigo-50/30 sm:sticky sm:right-0 sm:z-10 w-[80px] sm:w-[120px]">
+                    <TableCell className="text-center font-bold bg-card group-hover:bg-muted sm:sticky sm:right-0 sm:z-10 w-[80px] sm:w-[120px] shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                       <Badge 
-                        variant={Number(calculateFinal(student.id)) < 5 ? 'destructive' : 'secondary'} 
-                        className={`rounded-md px-1 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs ${Number(calculateFinal(student.id)) >= 5 ? 'bg-green-100 text-green-700' : ''}`}
+                        variant="secondary"
+                        className={`border-transparent rounded-md px-1 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs ${
+                          calculateFinal(student.id) === '-' ? 'bg-muted text-muted-foreground' :
+                          Number(calculateFinal(student.id)) >= 5 ? 'bg-green-500/10 text-green-700 dark:text-green-400' : 
+                          'bg-red-500/10 text-red-700 dark:text-red-400'
+                        }`}
                       >
                         {calculateFinal(student.id)}
                       </Badge>
@@ -749,7 +824,57 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
           </ScrollArea>
         </CardContent>
       </Card>
+      <Dialog open={showTutorial} onOpenChange={closeTutorial}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="flex items-center gap-2 text-2xl">
+              <span className="p-2 bg-primary/10 rounded-xl">
+                <HelpCircle className="w-6 h-6 text-primary" />
+              </span>
+              Guía de Notas
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            <p className="text-muted-foreground text-sm">
+              Tu cuaderno de notas recoge toda la estructura que creaste en la pestaña de evaluaciones y te permite rellenar las calificaciones.
+            </p>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-muted/50 p-4 rounded-xl border border-border">
+                <div className="flex items-center gap-2 mb-2 font-bold text-base">
+                  <Target className="w-5 h-5 text-blue-500" />
+                  Puntuar y Editar
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Simplemente haz click en el recuadro que corresponde a un alumno y una prueba para introducir la nota numérica sobre 10.
+                </p>
+              </div>
+              <div className="bg-muted/50 p-4 rounded-xl border border-border">
+                <div className="flex items-center gap-2 mb-2 font-bold text-base">
+                  <Layers className="w-5 h-5 text-purple-500" />
+                  Medias Automáticas
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Al introducir notas, las columnas de categorías (y la media final del trimestre a la derecha) se calcularán solas usando los pesos que definiste en la configuración.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-primary/5 border border-primary/20 p-4 rounded-xl flex gap-3">
+              <Lightbulb className="w-6 h-6 text-primary shrink-0" />
+              <div>
+                <h4 className="font-bold text-sm mb-1 text-primary">Filtrado rápido y Excel</h4>
+                <div className="text-xs text-muted-foreground space-y-2">
+                  <p>Puedes filtrar la vista por trimestres para evitar ver columnas vacías, y puedes descargar el informe en un archivo Excel compatible usando el botón "Planilla General".</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="mt-6">
+            <Button className="w-full sm:w-auto" onClick={closeTutorial}>¡Entendido!</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
-
 }

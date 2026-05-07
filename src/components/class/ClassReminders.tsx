@@ -10,10 +10,12 @@ import {
   Plus, 
   Trash2, 
   CheckCircle, 
-  Calendar,
+  Calendar as CalendarIcon,
   BellRing,
   BellOff,
-  Search
+  Search,
+  HelpCircle,
+  Lightbulb
 } from 'lucide-react';
 import { 
   Dialog, 
@@ -35,11 +37,24 @@ export default function ClassReminders({ classId, teacherId }: { classId: string
   const [searchQuery, setSearchQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     content: '',
     date: format(new Date(), 'yyyy-MM-dd'),
   });
+
+  useEffect(() => {
+    const hasSeen = localStorage.getItem('hasSeenRemindersTutorial');
+    if (!hasSeen) {
+      setShowTutorial(true);
+    }
+  }, []);
+
+  const closeTutorial = () => {
+    setShowTutorial(false);
+    localStorage.setItem('hasSeenRemindersTutorial', 'true');
+  };
 
   const fetchData = async () => {
     try {
@@ -111,17 +126,27 @@ export default function ClassReminders({ classId, teacherId }: { classId: string
 
   return (
     <div className="space-y-6">
-      <Card className="rounded-2xl bg-white/40 backdrop-blur-md border-white shadow-xl overflow-hidden">
-        <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white/20 border-b border-white/40 py-4 sm:py-6 px-4 sm:px-8 gap-4">
+      <Card className="rounded-2xl bg-card/40 backdrop-blur-md border-border shadow-xl overflow-hidden">
+        <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-card/20 border-b border-border/40 py-4 sm:py-6 px-4 sm:px-8 gap-4">
           <div className="flex-1">
-            <CardTitle className="font-display font-bold text-xl sm:text-2xl text-slate-900">Mis Recordatorios</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="font-display font-bold text-xl sm:text-2xl text-foreground">Mis Recordatorios</CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full"
+                onClick={() => setShowTutorial(true)}
+              >
+                <HelpCircle className="w-5 h-5" />
+              </Button>
+            </div>
             <div className="relative mt-3 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input 
                 placeholder="Buscar nota..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-10 bg-white/50 border-white/40 rounded-xl focus:bg-white transition-all text-sm"
+                className="pl-9 h-10 bg-card/50 border-border/40 rounded-xl focus:bg-card transition-all text-sm"
               />
             </div>
           </div>
@@ -130,7 +155,7 @@ export default function ClassReminders({ classId, teacherId }: { classId: string
             <DialogTrigger 
               nativeButton={true}
               render={
-                <Button className="rounded-xl px-6 bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-100">
+                <Button className="rounded-xl px-6 bg-primary text-white font-bold shadow-lg shadow-primary/10">
                   <Plus className="w-4 h-4 mr-2" /> Nueva Nota
                 </Button>
               }
@@ -160,26 +185,26 @@ export default function ClassReminders({ classId, teacherId }: { classId: string
         <CardContent className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredNotifications.length === 0 ? (
-              <div className="col-span-full py-12 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-                <Bell className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-slate-400 text-sm">No hay recordatorios registrados para esta clase</p>
+              <div className="col-span-full py-12 text-center bg-muted/50 rounded-2xl border border-dashed border-border">
+                <Bell className="w-8 h-8 text-muted-foreground/70 mx-auto mb-2" />
+                <p className="text-muted-foreground text-sm">No hay recordatorios registrados para esta clase</p>
               </div>
             ) : filteredNotifications
                 .sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
                 .map(notif => (
-                  <Card key={notif.id} className={`rounded-xl border-slate-100 shadow-sm transition-all hover:shadow-md ${notif.sent ? 'bg-slate-50 opacity-60' : 'bg-white'}`}>
+                  <Card key={notif.id} className={`rounded-xl border-border shadow-sm transition-all hover:shadow-md ${notif.sent ? 'bg-muted opacity-60' : 'bg-card'}`}>
                     <CardContent className="p-4 space-y-3">
                       <div className="flex justify-between items-start gap-2">
                         <div className="flex-1">
-                          <h4 className={`font-bold text-sm ${notif.sent ? 'line-through text-slate-400' : 'text-slate-800'}`}>{notif.title}</h4>
-                          <p className="text-xs text-slate-500 line-clamp-2 mt-1">{notif.content}</p>
+                          <h4 className={`font-bold text-sm ${notif.sent ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{notif.title}</h4>
+                          <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{notif.content}</p>
                         </div>
                         <div className="flex gap-1">
                           <Button 
                             variant="ghost" 
                             size="icon" 
                             onClick={() => markAsDone(notif.id, notif.sent || false)} 
-                            className={`h-7 w-7 rounded-lg ${notif.sent ? 'text-emerald-500 bg-emerald-50' : 'text-slate-300'}`}
+                            className={`h-7 w-7 rounded-lg ${notif.sent ? 'text-emerald-500 bg-emerald-500/10' : 'text-muted-foreground/70'}`}
                           >
                             <CheckCircle className="w-4 h-4" />
                           </Button>
@@ -187,14 +212,14 @@ export default function ClassReminders({ classId, teacherId }: { classId: string
                             variant="ghost" 
                             size="icon" 
                             onClick={() => setDeleteId(notif.id)} 
-                            className="h-7 w-7 rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50"
+                            className="h-7 w-7 rounded-lg text-muted-foreground/70 hover:text-rose-500 hover:bg-rose-500/10"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 pt-2 border-t border-slate-50 text-[10px] font-bold text-slate-400 uppercase">
-                        <Calendar className="w-3 h-3 text-indigo-400" />
+                      <div className="flex items-center gap-2 pt-2 border-t border-border text-[10px] font-bold text-muted-foreground uppercase">
+                        <Calendar className="w-3 h-3 text-primary/80" />
                         <span>{notif.date instanceof Timestamp ? format(notif.date.toDate(), 'PPP', { locale: es }) : notif.date}</span>
                       </div>
                     </CardContent>
@@ -207,10 +232,61 @@ export default function ClassReminders({ classId, teacherId }: { classId: string
       <Dialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader><DialogTitle>¿Eliminar recordatorio?</DialogTitle></DialogHeader>
-          <div className="py-4 text-sm text-slate-500">¿Estás seguro de que quieres eliminar esta nota?</div>
+          <div className="py-4 text-sm text-muted-foreground">¿Estás seguro de que quieres eliminar esta nota?</div>
           <DialogFooter className="flex gap-2">
             <Button variant="outline" onClick={() => setDeleteId(null)}>Cancelar</Button>
             <Button variant="destructive" onClick={handleDelete}>Eliminar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={showTutorial} onOpenChange={closeTutorial}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="flex items-center gap-2 text-2xl">
+              <span className="p-2 bg-primary/10 rounded-xl">
+                <HelpCircle className="w-6 h-6 text-primary" />
+              </span>
+              Guía de Recordatorios
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            <p className="text-muted-foreground text-sm">
+              Esta sección sirve como tablón de anuncios para comunicar cuestiones generales a la clase o llevar un registro público.
+            </p>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-muted/50 p-4 rounded-xl border border-border">
+                <div className="flex items-center gap-2 mb-2 font-bold text-base">
+                  <BellRing className="w-5 h-5 text-blue-500" />
+                  Crear Avisos
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Al añadir un recordatorio será visible para padres o en posibles exportaciones de datos de la aplicación.
+                </p>
+              </div>
+              <div className="bg-muted/50 p-4 rounded-xl border border-border">
+                <div className="flex items-center gap-2 mb-2 font-bold text-base">
+                  <CalendarIcon className="w-5 h-5 text-purple-500" />
+                  Fechas de Caducidad
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Asigna una fecha a tus avisos. Los recordatorios anteriores seguirán ahí pero se marcarán automáticamente indicando que ya expiraron o pasaron su fecha.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-primary/5 border border-primary/20 p-4 rounded-xl flex gap-3">
+              <Lightbulb className="w-6 h-6 text-primary shrink-0" />
+              <div>
+                <h4 className="font-bold text-sm mb-1 text-primary">¿Padres implicados?</h4>
+                <div className="text-xs text-muted-foreground space-y-2">
+                  <p>Mantén aquí el histórico de excursiones, requerimientos de material u otras notas de carácter público generalizado.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="mt-6">
+            <Button className="w-full sm:w-auto" onClick={closeTutorial}>¡Entendido!</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

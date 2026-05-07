@@ -10,11 +10,12 @@ import {
   sendEmailVerification,
   updateProfile
 } from 'firebase/auth';
-import { auth, db, handleFirestoreError, OperationType } from '@/src/firebase';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '@/src/firebase';
+import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 
 interface AuthContextType {
   user: User | null;
+  profile: any | null;
   loading: boolean;
   signIn: () => Promise<void>;
   signInWithEmail: (email: string, pass: string) => Promise<void>;
@@ -26,32 +27,56 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    let unsubscribeProfile: (() => void) | undefined;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
         // Ensure teacher record exists
         const teacherRef = doc(db, 'teachers', user.uid);
         try {
           const teacherDoc = await getDoc(teacherRef);
           if (!teacherDoc.exists()) {
-            await setDoc(teacherRef, {
+            const initialData = {
               uid: user.uid,
               email: user.email,
               name: user.displayName || 'Teacher',
               createdAt: serverTimestamp(),
-            });
+              preferences: {
+                theme: 'light',
+                photoURL: user.photoURL || ''
+              }
+            };
+            await setDoc(teacherRef, initialData);
+            setProfile(initialData);
+          } else {
+            setProfile(teacherDoc.data());
           }
+
+          // Real-time listener for profile updates
+          unsubscribeProfile = onSnapshot(teacherRef, (snapshot) => {
+            if (snapshot.exists()) {
+              setProfile(snapshot.data());
+            }
+          });
         } catch (error) {
           console.error("Error ensuring teacher doc:", error);
         }
+      } else {
+        setProfile(null);
+        if (unsubscribeProfile) unsubscribeProfile();
       }
       setUser(user);
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeProfile) unsubscribeProfile();
+    };
   }, []);
 
   const signIn = async () => {
@@ -74,7 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signInWithEmail, signUpWithEmail, logout }}>
+    <AuthContext.Provider value={{ user, profile, loading, signIn, signInWithEmail, signUpWithEmail, logout }}>
       {children}
     </AuthContext.Provider>
   );

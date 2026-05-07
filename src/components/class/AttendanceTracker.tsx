@@ -16,7 +16,8 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Calendar as CalendarIcon, CheckCircle2, XCircle, Clock, Search } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Calendar as CalendarIcon, CheckCircle2, XCircle, Clock, Search, HelpCircle, Lightbulb } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
@@ -28,6 +29,19 @@ export default function AttendanceTracker({ classId, teacherId }: { classId: str
   const [attendance, setAttendance] = useState<Record<string, 'present' | 'absent' | 'late'>>({});
   const [date, setDate] = useState<Date>(new Date());
   const [loading, setLoading] = useState(true);
+  const [showTutorial, setShowTutorial] = useState(false);
+
+  useEffect(() => {
+    const hasSeen = localStorage.getItem('hasSeenAttendanceTutorial');
+    if (!hasSeen) {
+      setShowTutorial(true);
+    }
+  }, []);
+
+  const closeTutorial = () => {
+    setShowTutorial(false);
+    localStorage.setItem('hasSeenAttendanceTutorial', 'true');
+  };
 
   const fetchStudents = async () => {
     try {
@@ -106,17 +120,27 @@ export default function AttendanceTracker({ classId, teacherId }: { classId: str
   };
 
   return (
-    <Card className="rounded-3xl border-slate-200 shadow-sm overflow-hidden">
-      <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white border-b py-4 sm:py-6 px-4 sm:px-8 gap-4">
+    <Card className="rounded-3xl border-border shadow-sm overflow-hidden">
+      <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-card border-b py-4 sm:py-6 px-4 sm:px-8 gap-4">
         <div className="flex-1">
-          <CardTitle className="font-display font-bold text-xl">Control de Asistencia</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle className="font-display font-bold text-xl">Control de Asistencia</CardTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full"
+              onClick={() => setShowTutorial(true)}
+            >
+              <HelpCircle className="w-5 h-5" />
+            </Button>
+          </div>
           <div className="relative mt-3 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input 
               placeholder="Buscar alumno..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-10 bg-slate-50 border-slate-200 rounded-xl focus:bg-white transition-all text-sm"
+              className="pl-9 h-10 bg-muted border-border rounded-xl focus:bg-card transition-all text-sm"
             />
           </div>
         </div>
@@ -125,7 +149,7 @@ export default function AttendanceTracker({ classId, teacherId }: { classId: str
           <PopoverTrigger 
             nativeButton={true}
             render={
-              <Button variant="outline" className="w-full sm:w-auto rounded-full gap-2 border-slate-200 text-xs sm:text-sm h-9 sm:h-10" />
+              <Button variant="outline" className="w-full sm:w-auto rounded-full gap-2 border-border text-xs sm:text-sm h-9 sm:h-10" />
             }
           >
             <CalendarIcon className="w-4 h-4" />
@@ -145,8 +169,8 @@ export default function AttendanceTracker({ classId, teacherId }: { classId: str
         <ScrollArea className="w-full">
           <Table className="min-w-[500px]">
             <TableHeader>
-              <TableRow className="bg-slate-50/50">
-                <TableHead className="px-4 sm:px-8 py-3 sm:py-4 font-bold text-xs sm:text-sm sticky left-0 bg-slate-50 z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Alumno</TableHead>
+              <TableRow className="bg-muted/50">
+                <TableHead className="px-4 sm:px-8 py-3 sm:py-4 font-bold text-xs sm:text-sm sticky left-0 bg-muted z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Alumno</TableHead>
                 <TableHead className="text-center font-bold text-xs sm:text-sm">Estado Actual</TableHead>
                 <TableHead className="text-right px-4 sm:px-8 font-bold text-xs sm:text-sm">Acciones</TableHead>
               </TableRow>
@@ -154,24 +178,31 @@ export default function AttendanceTracker({ classId, teacherId }: { classId: str
             <TableBody>
               {filteredStudents.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="h-40 text-center text-slate-400 italic">
+                  <TableCell colSpan={3} className="h-40 text-center text-muted-foreground italic">
                     No se encontraron alumnos.
                   </TableCell>
                 </TableRow>
               ) : filteredStudents.map(student => (
-                <TableRow key={student.id} className="group hover:bg-slate-50/30 transition-colors">
-                  <TableCell className="px-4 sm:px-8 py-3 sm:py-4 font-medium text-sm sm:text-base sticky left-0 bg-white z-10 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover:bg-slate-50">
+                <TableRow key={student.id} className="group hover:bg-muted/30 transition-colors">
+                  <TableCell className="px-4 sm:px-8 py-3 sm:py-4 font-medium text-sm sm:text-base sticky left-0 bg-card z-10 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover:bg-muted">
                     {student.lastName ? `${student.lastName}, ${student.name}` : student.name}
                   </TableCell>
                   <TableCell className="text-center">
                     <div className="flex justify-center">
                       {attendance[student.id] ? (
-                        <Badge variant="secondary" className="gap-1 sm:gap-2 px-2 sm:px-3 py-0.5 sm:py-1 bg-slate-100 rounded-full text-[10px] sm:text-xs">
+                        <Badge 
+                          variant="secondary" 
+                          className={`gap-1 sm:gap-2 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs border-transparent ${
+                            attendance[student.id] === 'present' ? 'bg-green-500/10 text-green-700 dark:text-green-400' : 
+                            attendance[student.id] === 'absent' ? 'bg-red-500/10 text-red-700 dark:text-red-400' : 
+                            'bg-orange-500/10 text-orange-700 dark:text-orange-400'
+                          }`}
+                        >
                           {getStatusIcon(attendance[student.id])}
                           <span className="capitalize">{attendance[student.id] === 'present' ? 'Presente' : attendance[student.id] === 'absent' ? 'Ausente' : 'Retraso'}</span>
                         </Badge>
                       ) : (
-                        <span className="text-[10px] text-slate-400">Sin marcar</span>
+                        <span className="text-[10px] text-muted-foreground">Sin marcar</span>
                       )}
                     </div>
                   </TableCell>
@@ -210,6 +241,57 @@ export default function AttendanceTracker({ classId, teacherId }: { classId: str
           <ScrollBar orientation="horizontal" />
         </ScrollArea>
       </CardContent>
+      <Dialog open={showTutorial} onOpenChange={closeTutorial}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="flex items-center gap-2 text-2xl">
+              <span className="p-2 bg-primary/10 rounded-xl">
+                <HelpCircle className="w-6 h-6 text-primary" />
+              </span>
+              Guía de Asistencia
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            <p className="text-muted-foreground text-sm">
+              Registra rápidamente el control de faltas día por día seleccionando el calendario.
+            </p>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-muted/50 p-4 rounded-xl border border-border">
+                <div className="flex items-center gap-2 mb-2 font-bold text-base">
+                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  Estado
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Al marcar cualquier estado (presente/ausente/tarde) sobre un alumno, se actualizará y guardará automáticamente para la fecha mostrada.
+                </p>
+              </div>
+              <div className="bg-muted/50 p-4 rounded-xl border border-border">
+                <div className="flex items-center gap-2 mb-2 font-bold text-base">
+                  <CalendarIcon className="w-5 h-5 text-purple-500" />
+                  Fechas Pasadas
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Usa el selector de fecha y podrás ver, y editar si lo necesitas, las asistencias marcadas de días pasados de tus alumnos.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-primary/5 border border-primary/20 p-4 rounded-xl flex gap-3">
+              <Lightbulb className="w-6 h-6 text-primary shrink-0" />
+              <div>
+                <h4 className="font-bold text-sm mb-1 text-primary">Autoguardado inmediato</h4>
+                <div className="text-xs text-muted-foreground space-y-2">
+                  <p>La aplicación guarda instantáneamente cada opción que pulsas sobre un alumno, no necesitas buscar ningún botón de "Guardar Cambios".</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="mt-6">
+            <Button className="w-full sm:w-auto" onClick={closeTutorial}>¡Entendido!</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

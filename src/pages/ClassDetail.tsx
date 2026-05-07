@@ -62,32 +62,32 @@ export default function ClassDetail() {
     <div className="min-h-screen">
       <Navbar />
       
-      <header className="bg-white/40 backdrop-blur-md border-b border-white/20 py-8 text-center sm:text-left">
+      <header className="bg-card/40 backdrop-blur-md border-b border-border py-8 text-center sm:text-left">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-center sm:justify-start gap-4 text-xs font-bold text-indigo-600 uppercase tracking-widest mb-1">
+          <div className="flex items-center justify-center sm:justify-start gap-4 text-xs font-bold text-primary uppercase tracking-widest mb-1">
             <span>{classData.subject}</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-display font-black text-slate-900 tracking-tight underline underline-offset-8 decoration-indigo-500/30">{classData.name}</h1>
+          <h1 className="text-3xl sm:text-4xl font-display font-black text-foreground tracking-tight underline underline-offset-8 decoration-primary/30">{classData.name}</h1>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
         <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-8">
           <div className="flex justify-start overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 no-scrollbar">
-            <TabsList className="bg-white/40 backdrop-blur-md p-1 border border-white/20 rounded-2xl h-12 shadow-sm flex-none">
-              <TabsTrigger value="students" className="rounded-xl px-6 gap-2 data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
+            <TabsList className="bg-card/40 backdrop-blur-md p-1 border border-border rounded-2xl h-12 shadow-sm flex-none">
+              <TabsTrigger value="students" className="rounded-xl px-6 gap-2 transition-all duration-300 active:scale-95 hover:scale-[1.02] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                 <Users className="w-4 h-4" /> Alumnos
               </TabsTrigger>
-              <TabsTrigger value="attendance" className="rounded-xl px-6 gap-2 data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
+              <TabsTrigger value="attendance" className="rounded-xl px-6 gap-2 transition-all duration-300 active:scale-95 hover:scale-[1.02] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                 <ClipboardList className="w-4 h-4" /> Asistencia
               </TabsTrigger>
-              <TabsTrigger value="assessments" className="rounded-xl px-6 gap-2 data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
+              <TabsTrigger value="assessments" className="rounded-xl px-6 gap-2 transition-all duration-300 active:scale-95 hover:scale-[1.02] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                 <PenTool className="w-4 h-4" /> Evaluaciones
               </TabsTrigger>
-              <TabsTrigger value="grades" className="rounded-xl px-6 gap-2 data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
+              <TabsTrigger value="grades" className="rounded-xl px-6 gap-2 transition-all duration-300 active:scale-95 hover:scale-[1.02] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                 <BarChart2 className="w-4 h-4" /> Calificaciones
               </TabsTrigger>
-              <TabsTrigger value="analytics" className="rounded-xl px-6 gap-2 data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
+              <TabsTrigger value="analytics" className="rounded-xl px-6 gap-2 transition-all duration-300 active:scale-95 hover:scale-[1.02] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                 <BarChart2 className="w-4 h-4" /> Análisis
               </TabsTrigger>
             </TabsList>

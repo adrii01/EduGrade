@@ -60,16 +60,16 @@ export default function Landing() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[#F8FAFC]">
       {/* Left Side: Branding & Info */}
-      <div className="hidden lg:flex lg:w-1/2 bg-indigo-600 p-12 flex-col justify-between relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 bg-primary p-12 flex-col justify-between relative overflow-hidden">
         <div className="absolute top-0 right-0 w-full h-full opacity-10 pointer-events-none">
-          <div className="absolute top-[-10%] right-[-10%] w-[80%] h-[80%] border-[40px] border-white rounded-full" />
-          <div className="absolute bottom-[20%] left-[-10%] w-[40%] h-[40%] border-[20px] border-white rounded-full" />
+          <div className="absolute top-[-10%] right-[-10%] w-[80%] h-[80%] border-[40px] border-border rounded-full" />
+          <div className="absolute bottom-[20%] left-[-10%] w-[40%] h-[40%] border-[20px] border-border rounded-full" />
         </div>
         
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-12">
-            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-xl">
-              <GraduationCap className="w-6 h-6 text-indigo-600" />
+            <div className="w-10 h-10 bg-card rounded-xl flex items-center justify-center shadow-xl">
+              <GraduationCap className="w-6 h-6 text-primary" />
             </div>
             <span className="text-2xl font-display font-black text-white tracking-tight">EduGrade</span>
           </div>
@@ -94,7 +94,7 @@ export default function Landing() {
                 { icon: Clock, title: 'Ahorro de Tiempo', desc: 'Automatiza el pase de lista y el cálculo de notas.' }
               ].map((item, i) => (
                 <div key={i} className="flex gap-4 items-start">
-                  <div className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 bg-card/10 rounded-lg flex items-center justify-center shrink-0">
                     <item.icon className="w-5 h-5 text-white" />
                   </div>
                   <div>
@@ -121,13 +121,13 @@ export default function Landing() {
         >
           {/* Mobile Logo */}
           <div className="lg:hidden flex flex-col items-center mb-8">
-            <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg mb-4">
+            <div className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center shadow-lg mb-4">
               <GraduationCap className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-3xl font-display font-black text-slate-900">EduGrade</h1>
+            <h1 className="text-3xl font-display font-black text-foreground">EduGrade</h1>
           </div>
 
-          <div className="bg-white rounded-[2rem] p-8 sm:p-10 shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-slate-100">
+          <div className="bg-card rounded-[2rem] p-8 sm:p-10 shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-border">
             <AnimatePresence mode="wait">
               {mode === 'verify' ? (
                 <motion.div
@@ -140,12 +140,12 @@ export default function Landing() {
                   <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
                     <CheckCircle2 className="w-10 h-10 text-green-500" />
                   </div>
-                  <h2 className="text-2xl font-bold text-slate-900 mb-2">Verifica tu correo</h2>
-                  <p className="text-slate-500 mb-8 text-sm">Hemos enviado un enlace a <span className="font-bold text-slate-700">{email}</span>. Por favor, confírmalo para acceder a EduGrade.</p>
+                  <h2 className="text-2xl font-bold text-foreground mb-2">Verifica tu correo</h2>
+                  <p className="text-muted-foreground mb-8 text-sm">Hemos enviado un enlace a <span className="font-bold text-foreground">{email}</span>. Por favor, confírmalo para acceder a EduGrade.</p>
                   
                   <div className="space-y-3">
                     <Button 
-                      className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700"
+                      className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90"
                       onClick={async () => {
                         setIsSubmitting(true);
                         try {
@@ -167,7 +167,7 @@ export default function Landing() {
                     </Button>
                     <Button 
                       variant="ghost" 
-                      className="w-full h-12 rounded-xl text-slate-500"
+                      className="w-full h-12 rounded-xl text-muted-foreground"
                       onClick={() => setMode('login')}
                     >
                       Volver al inicio de sesión
@@ -182,10 +182,10 @@ export default function Landing() {
                   exit={{ opacity: 0, y: -10 }}
                 >
                   <div className="mb-8">
-                    <h2 className="text-2xl font-bold text-slate-900">
+                    <h2 className="text-2xl font-bold text-foreground">
                       {mode === 'login' ? 'Bienvenido de nuevo' : 'Crea tu cuenta'}
                     </h2>
-                    <p className="text-slate-500 mt-1 text-sm">
+                    <p className="text-muted-foreground mt-1 text-sm">
                       {mode === 'login' ? 'Accede a tu panel docente profesional' : 'Comienza a organizar tus cursos hoy'}
                     </p>
                   </div>
@@ -195,11 +195,11 @@ export default function Landing() {
                       <div className="space-y-1.5">
                         <Label htmlFor="name">Nombre Completo</Label>
                         <div className="relative">
-                          <User className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                          <User className="absolute left-3.5 top-3.5 w-4 h-4 text-muted-foreground" />
                           <Input 
                             id="name" 
                             placeholder="Ej. Prof. María García"
-                            className="pl-10 h-12 rounded-xl bg-slate-50/50 border-slate-200 focus:bg-white transition-all shadow-none"
+                            className="pl-10 h-12 rounded-xl bg-muted/50 border-border focus:bg-card transition-all shadow-none"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             required
@@ -211,12 +211,12 @@ export default function Landing() {
                     <div className="space-y-1.5">
                       <Label htmlFor="email">Correo Electrónico</Label>
                       <div className="relative">
-                        <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                        <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-muted-foreground" />
                         <Input 
                           id="email" 
                           type="email" 
                           placeholder="tu@colegio.com"
-                          className="pl-10 h-12 rounded-xl bg-slate-50/50 border-slate-200 focus:bg-white transition-all shadow-none"
+                          className="pl-10 h-12 rounded-xl bg-muted/50 border-border focus:bg-card transition-all shadow-none"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           required
@@ -227,15 +227,15 @@ export default function Landing() {
                     <div className="space-y-1.5">
                       <div className="flex justify-between items-center">
                         <Label htmlFor="password">Contraseña</Label>
-                        {mode === 'login' && <button type="button" className="text-[11px] font-bold text-indigo-600 hover:underline uppercase tracking-tighter">¿Olvidaste la clave?</button>}
+                        {mode === 'login' && <button type="button" className="text-[11px] font-bold text-primary hover:underline uppercase tracking-tighter">¿Olvidaste la clave?</button>}
                       </div>
                       <div className="relative">
-                        <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                        <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-muted-foreground" />
                         <Input 
                           id="password" 
                           type="password" 
                           placeholder="••••••••"
-                          className="pl-10 h-12 rounded-xl bg-slate-50/50 border-slate-200 focus:bg-white transition-all shadow-none"
+                          className="pl-10 h-12 rounded-xl bg-muted/50 border-border focus:bg-card transition-all shadow-none"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           required
@@ -245,7 +245,7 @@ export default function Landing() {
 
                     <Button 
                       type="submit" 
-                      className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-all shadow-lg shadow-indigo-100 mt-2"
+                      className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold transition-all shadow-lg shadow-primary/10 mt-2"
                       disabled={isSubmitting}
                     >
                       {isSubmitting ? 'Procesando...' : (mode === 'login' ? 'Iniciar Sesión' : 'Continuar al registro')}
@@ -253,18 +253,19 @@ export default function Landing() {
                     </Button>
                   </form>
 
+
                   <div className="relative my-8">
                     <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-slate-100"></div>
+                      <div className="w-full border-t border-border"></div>
                     </div>
-                    <div className="relative flex justify-center text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
-                      <span className="bg-white px-4">O accede con</span>
+                    <div className="relative flex justify-center text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                      <span className="bg-card px-4">O accede con</span>
                     </div>
                   </div>
 
                   <Button 
                     variant="outline" 
-                    className="w-full h-12 rounded-xl border-slate-200 flex gap-3 hover:bg-slate-50 font-bold transition-all"
+                    className="w-full h-12 rounded-xl border-border flex gap-3 hover:bg-muted font-bold transition-all"
                     onClick={handleGoogleSignIn}
                     disabled={isSubmitting}
                   >
@@ -272,12 +273,12 @@ export default function Landing() {
                     {isSubmitting && mode === 'login' ? 'Conectando...' : 'Cuenta de Google'}
                   </Button>
 
-                  <p className="mt-8 text-center text-slate-500 text-sm">
+                  <p className="mt-8 text-center text-muted-foreground text-sm">
                     {mode === 'login' ? '¿Aún no tienes cuenta docente?' : '¿Ya formas parte de la red?'} {' '}
                     <button 
                       type="button"
                       onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-                      className="text-indigo-600 font-bold hover:underline"
+                      className="text-primary font-bold hover:underline"
                     >
                       {mode === 'login' ? 'Crea una ahora' : 'Acceder aquí'}
                     </button>
@@ -288,7 +289,7 @@ export default function Landing() {
           </div>
 
           <div className="mt-8 text-center px-4">
-            <p className="text-slate-400 text-[10px] uppercase font-bold tracking-widest leading-relaxed">
+            <p className="text-muted-foreground text-[10px] uppercase font-bold tracking-widest leading-relaxed">
               Infraestructura digital de confianza para centros educativos
             </p>
           </div>

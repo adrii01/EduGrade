@@ -23,7 +23,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Plus, Trash2, UserPlus, Mail, Pencil, Fingerprint, Phone, MapPin, Search } from 'lucide-react';
+import { Plus, Trash2, UserPlus, Mail, Pencil, Fingerprint, Phone, MapPin, Search, HelpCircle, Lightbulb } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function StudentsList({ classId, teacherId }: { classId: string, teacherId: string }) {
@@ -31,6 +31,7 @@ export default function StudentsList({ classId, teacherId }: { classId: string, 
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ 
@@ -42,6 +43,18 @@ export default function StudentsList({ classId, teacherId }: { classId: string, 
     phone: '',
     address: ''
   });
+
+  useEffect(() => {
+    const hasSeen = localStorage.getItem('hasSeenStudentsTutorial');
+    if (!hasSeen) {
+      setShowTutorial(true);
+    }
+  }, []);
+
+  const closeTutorial = () => {
+    setShowTutorial(false);
+    localStorage.setItem('hasSeenStudentsTutorial', 'true');
+  };
 
   const fetchStudents = async () => {
     try {
@@ -124,17 +137,27 @@ export default function StudentsList({ classId, teacherId }: { classId: string, 
   };
 
   return (
-    <Card className="rounded-2xl bg-white/40 backdrop-blur-md border-white shadow-xl overflow-hidden">
-      <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white/20 border-b border-white/40 py-4 sm:py-6 px-4 sm:px-8 gap-4">
+    <Card className="rounded-2xl bg-card/40 backdrop-blur-md border-border shadow-xl overflow-hidden">
+      <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-card/20 border-b border-border/40 py-4 sm:py-6 px-4 sm:px-8 gap-4">
         <div className="flex-1">
-          <CardTitle className="font-display font-bold text-xl sm:text-2xl text-slate-900">Listado de Alumnos</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle className="font-display font-bold text-xl sm:text-2xl text-foreground">Listado de Alumnos</CardTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full"
+              onClick={() => setShowTutorial(true)}
+            >
+              <HelpCircle className="w-5 h-5" />
+            </Button>
+          </div>
           <div className="relative mt-3 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input 
               placeholder="Buscar alumno..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-10 bg-white/50 border-white/40 rounded-xl focus:bg-white transition-all text-sm"
+              className="pl-9 h-10 bg-card/50 border-border/40 rounded-xl focus:bg-card transition-all text-sm"
             />
           </div>
         </div>
@@ -150,7 +173,7 @@ export default function StudentsList({ classId, teacherId }: { classId: string, 
             render={
               <Button 
                 size="sm" 
-                className="w-full sm:w-auto rounded-xl bg-indigo-600 shadow-lg shadow-indigo-200"
+                className="w-full sm:w-auto rounded-xl bg-primary shadow-lg shadow-primary/20"
                 onClick={() => {
                   setEditingId(null);
                   setFormData({ name: '', lastName: '', dni: '', email: '', parentEmail: '', phone: '', address: '' });
@@ -203,37 +226,37 @@ export default function StudentsList({ classId, teacherId }: { classId: string, 
         <ScrollArea className="w-full">
           <Table className="min-w-[1000px]">
             <TableHeader>
-              <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
-                <TableHead className="px-4 sm:px-8 py-3 sm:py-4 font-bold text-slate-700 sticky left-0 bg-slate-50 z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Alumno</TableHead>
-                <TableHead className="font-bold text-slate-700">DNI</TableHead>
-                <TableHead className="font-bold text-slate-700">Teléfono</TableHead>
-                <TableHead className="font-bold text-slate-700">Email Alumno</TableHead>
-                <TableHead className="font-bold text-slate-700">Tutor/Padre</TableHead>
-                <TableHead className="font-bold text-slate-700">Dirección</TableHead>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableHead className="px-4 sm:px-8 py-3 sm:py-4 font-bold text-foreground sticky left-0 bg-muted z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Alumno</TableHead>
+                <TableHead className="font-bold text-foreground">DNI</TableHead>
+                <TableHead className="font-bold text-foreground">Teléfono</TableHead>
+                <TableHead className="font-bold text-foreground">Email Alumno</TableHead>
+                <TableHead className="font-bold text-foreground">Tutor/Padre</TableHead>
+                <TableHead className="font-bold text-foreground">Dirección</TableHead>
                 <TableHead className="text-right px-4 sm:px-8">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {students.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-40 text-center text-slate-400">No hay alumnos aún</TableCell>
+                  <TableCell colSpan={7} className="h-40 text-center text-muted-foreground">No hay alumnos aún</TableCell>
                 </TableRow>
               ) : filteredStudents.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-12 text-slate-400 italic">
+                  <TableCell colSpan={8} className="text-center py-12 text-muted-foreground italic">
                     No se encontraron alumnos que coincidan con la búsqueda.
                   </TableCell>
                 </TableRow>
               ) : filteredStudents.map(student => (
-                <TableRow key={student.id} className="hover:bg-slate-50/30 transition-colors">
-                  <TableCell className="px-4 sm:px-8 py-3 sm:py-4 font-semibold text-sm sm:text-base border-l-4 border-transparent hover:border-indigo-400 transition-all sticky left-0 bg-white z-10 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover:bg-slate-50">
+                <TableRow key={student.id} className="hover:bg-muted/30 transition-colors">
+                  <TableCell className="px-4 sm:px-8 py-3 sm:py-4 font-semibold text-sm sm:text-base border-l-4 border-transparent hover:border-primary/40 transition-all sticky left-0 bg-card z-10 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover:bg-muted">
                     {student.lastName}, {student.name}
                   </TableCell>
-                  <TableCell className="text-slate-500 font-mono text-[10px] sm:text-xs">{student.dni || '-'}</TableCell>
-                  <TableCell className="text-slate-500 font-mono text-[10px] sm:text-xs">{student.phone || '-'}</TableCell>
-                  <TableCell className="text-slate-500 font-mono text-[10px] sm:text-xs">{student.email || '-'}</TableCell>
-                  <TableCell className="text-slate-500 font-mono text-[10px] sm:text-xs">{student.parentEmail || '-'}</TableCell>
-                  <TableCell className="text-slate-500 font-mono text-[10px] sm:text-xs">
+                  <TableCell className="text-muted-foreground font-mono text-[10px] sm:text-xs">{student.dni || '-'}</TableCell>
+                  <TableCell className="text-muted-foreground font-mono text-[10px] sm:text-xs">{student.phone || '-'}</TableCell>
+                  <TableCell className="text-muted-foreground font-mono text-[10px] sm:text-xs">{student.email || '-'}</TableCell>
+                  <TableCell className="text-muted-foreground font-mono text-[10px] sm:text-xs">{student.parentEmail || '-'}</TableCell>
+                  <TableCell className="text-muted-foreground font-mono text-[10px] sm:text-xs">
                     <div className="max-w-[150px] truncate" title={student.address}>
                       {student.address || '-'}
                     </div>
@@ -247,7 +270,7 @@ export default function StudentsList({ classId, teacherId }: { classId: string, 
                           e.stopPropagation();
                           handleEdit(student);
                         }} 
-                        className="h-8 w-8 p-0 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                       >
                         <Pencil className="w-4 h-4" />
                       </Button>
@@ -258,7 +281,7 @@ export default function StudentsList({ classId, teacherId }: { classId: string, 
                           e.stopPropagation();
                           setDeleteId(student.id);
                         }} 
-                        className="h-8 w-8 p-0 text-slate-400 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -276,12 +299,63 @@ export default function StudentsList({ classId, teacherId }: { classId: string, 
           <DialogHeader>
             <DialogTitle>¿Confirmar eliminación?</DialogTitle>
           </DialogHeader>
-          <div className="py-4 text-sm text-slate-500">
+          <div className="py-4 text-sm text-muted-foreground">
             ¿Estás seguro de que quieres eliminar a este alumno? Esta acción no se puede deshacer.
           </div>
           <DialogFooter className="flex gap-2">
             <Button variant="outline" onClick={() => setDeleteId(null)}>Cancelar</Button>
             <Button variant="destructive" onClick={handleDelete}>Eliminar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={showTutorial} onOpenChange={closeTutorial}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="flex items-center gap-2 text-2xl">
+              <span className="p-2 bg-primary/10 rounded-xl">
+                <HelpCircle className="w-6 h-6 text-primary" />
+              </span>
+              Guía de Alumnos
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            <p className="text-muted-foreground text-sm">
+              Esta pestaña te permite gestionar el listado de alumnos de tu clase.
+            </p>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-muted/50 p-4 rounded-xl border border-border">
+                <div className="flex items-center gap-2 mb-2 font-bold text-base">
+                  <UserPlus className="w-5 h-5 text-blue-500" />
+                  Añadir Alumno
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Registra nuevos estudiantes. Podrás guardar sus datos de contacto y el correo de los padres o tutores.
+                </p>
+              </div>
+              <div className="bg-muted/50 p-4 rounded-xl border border-border">
+                <div className="flex items-center gap-2 mb-2 font-bold text-base">
+                  <Fingerprint className="w-5 h-5 text-purple-500" />
+                  Identificación
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Registra un identificador único (DNI/NIE) para cruzar datos y evitar alumnos duplicados de forma cómoda.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-primary/5 border border-primary/20 p-4 rounded-xl flex gap-3">
+              <Lightbulb className="w-6 h-6 text-primary shrink-0" />
+              <div>
+                <h4 className="font-bold text-sm mb-1 text-primary">Consejo útil</h4>
+                <div className="text-xs text-muted-foreground space-y-2">
+                  <p>Manten los correos electrónicos actualizados, esto te permitirá usar otras funcionalidades de envíos u hojas de notas con más agilidad.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="mt-6">
+            <Button className="w-full sm:w-auto" onClick={closeTutorial}>¡Entendido, empezar!</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
