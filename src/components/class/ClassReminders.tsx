@@ -219,7 +219,7 @@ export default function ClassReminders({ classId, teacherId }: { classId: string
                         </div>
                       </div>
                       <div className="flex items-center gap-2 pt-2 border-t border-border text-[10px] font-bold text-muted-foreground uppercase">
-                        <Calendar className="w-3 h-3 text-primary/80" />
+                        <CalendarIcon className="w-3 h-3 text-primary/80" />
                         <span>{notif.date instanceof Timestamp ? format(notif.date.toDate(), 'PPP', { locale: es }) : notif.date}</span>
                       </div>
                     </CardContent>
