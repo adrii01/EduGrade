@@ -3,6 +3,9 @@ export interface Teacher {
   uid: string;
   email: string;
   name: string;
+  plan?: 'free' | 'pro' | 'premium';
+  subscriptionId?: string;
+  subscriptionStatus?: string;
   createdAt: any;
 }
 
@@ -12,6 +15,7 @@ export interface Class {
   subject: string;
   teacherId: string;
   trimesters: number;
+  trimesterWeights?: Record<number, number>;
   createdAt: any;
 }
 
@@ -21,7 +25,7 @@ export interface Student {
   lastName: string;
   dni: string;
   email: string;
-  parentEmail: string;
+  parentName: string;
   phone?: string;
   address?: string;
   classId: string;

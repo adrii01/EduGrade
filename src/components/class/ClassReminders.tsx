@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { db, handleFirestoreError, OperationType } from '@/src/firebase';
-import { collection, query, where, getDocs, addDoc, serverTimestamp, deleteDoc, doc, updateDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, deleteDoc, doc, updateDoc, Timestamp, onSnapshot } from 'firebase/firestore';
 import { Notification } from '@/src/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -32,12 +32,14 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
+import { useTutorial } from '@/src/lib/useTutorial';
+
 export default function ClassReminders({ classId, teacherId }: { classId: string, teacherId: string }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [showTutorial, setShowTutorial] = useState(false);
+  const { showTutorial, closeTutorial, openTutorial: setShowTutorial } = useTutorial('reminders');
   const [formData, setFormData] = useState({
     title: '',
     content: '',
@@ -45,34 +47,19 @@ export default function ClassReminders({ classId, teacherId }: { classId: string
   });
 
   useEffect(() => {
-    const hasSeen = localStorage.getItem('hasSeenRemindersTutorial');
-    if (!hasSeen) {
-      setShowTutorial(true);
-    }
-  }, []);
+    const qN = query(
+      collection(db, 'notifications'), 
+      where('teacherId', '==', teacherId),
+      where('classId', '==', classId)
+    );
 
-  const closeTutorial = () => {
-    setShowTutorial(false);
-    localStorage.setItem('hasSeenRemindersTutorial', 'true');
-  };
+    const unsubN = onSnapshot(qN, (snap) => {
+      setNotifications(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'class_reminders');
+    });
 
-  const fetchData = async () => {
-    try {
-      const qN = query(
-        collection(db, 'notifications'), 
-        where('teacherId', '==', teacherId),
-        where('classId', '==', classId)
-      );
-
-      const snapN = await getDocs(qN);
-      setNotifications(snapN.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification)));
-    } catch (error) {
-       handleFirestoreError(error, OperationType.LIST, 'class_reminders');
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
+    return () => unsubN();
   }, [classId, teacherId]);
 
   const handleCreate = async () => {
@@ -92,7 +79,6 @@ export default function ClassReminders({ classId, teacherId }: { classId: string
       toast.success('Recordatorio guardado');
       setIsOpen(false);
       setFormData({ title: '', content: '', date: format(new Date(), 'yyyy-MM-dd') });
-      fetchData();
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'notifications');
     }
@@ -113,7 +99,6 @@ export default function ClassReminders({ classId, teacherId }: { classId: string
   const markAsDone = async (id: string, currentSent: boolean) => {
     try {
         await updateDoc(doc(db, 'notifications', id), { sent: !currentSent });
-        fetchData();
     } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `notifications/${id}`);
     }

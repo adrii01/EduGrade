@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { db, handleFirestoreError, OperationType } from '@/src/firebase';
-import { collection, query, where, getDocs, setDoc, doc, serverTimestamp } from 'firebase/firestore';
-import { Student, Assessment, Grade } from '@/src/types';
+import { collection, query, where, getDocs, setDoc, doc, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { Student, Assessment, Grade, Class } from '@/src/types';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { 
   Table, 
@@ -29,6 +29,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { BarChart3, CheckCircle2, GraduationCap, Search, Download, HelpCircle, Lightbulb, Target, Layers } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { useTutorial } from '@/src/lib/useTutorial';
+import { motion } from 'motion/react';
 
 function GradeInput({ 
   studentId, 
@@ -68,62 +70,86 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
   const [students, setStudents] = useState<Student[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [assessments, setAssessments] = useState<Assessment[]>([]);
+  const [classData, setClassData] = useState<Class | null>(null);
   const [grades, setGrades] = useState<Record<string, number>>({}); // key: studentId_assessmentId
   const [loading, setLoading] = useState(true);
   const [trimester, setTrimester] = useState('1');
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [showTutorial, setShowTutorial] = useState(false);
+  const { showTutorial, closeTutorial, openTutorial: setShowTutorial } = useTutorial('gradebook');
 
   useEffect(() => {
-    const hasSeen = localStorage.getItem('hasSeenGradebookTutorial');
-    if (!hasSeen) {
-      setShowTutorial(true);
-    }
-  }, []);
+    const qS = query(
+      collection(db, 'students'), 
+      where('classId', '==', classId),
+      where('teacherId', '==', teacherId)
+    );
+    const qA = query(
+      collection(db, 'assessments'), 
+      where('classId', '==', classId),
+      where('teacherId', '==', teacherId)
+    );
+    const qG = query(
+      collection(db, 'grades'), 
+      where('classId', '==', classId),
+      where('teacherId', '==', teacherId)
+    );
 
-  const closeTutorial = () => {
-    setShowTutorial(false);
-    localStorage.setItem('hasSeenGradebookTutorial', 'true');
-  };
+    let studentsLoaded = false;
+    let assessmentsLoaded = false;
+    let gradesLoaded = false;
+    let classLoaded = false;
 
-  const fetchData = async () => {
-    try {
-      const qS = query(
-        collection(db, 'students'), 
-        where('classId', '==', classId),
-        where('teacherId', '==', teacherId)
-      );
-      const qA = query(
-        collection(db, 'assessments'), 
-        where('classId', '==', classId),
-        where('teacherId', '==', teacherId)
-      );
-      const qG = query(
-        collection(db, 'grades'), 
-        where('classId', '==', classId),
-        where('teacherId', '==', teacherId)
-      );
+    const checkLoading = () => {
+      if (studentsLoaded && assessmentsLoaded && gradesLoaded && classLoaded) {
+        setLoading(false);
+      }
+    };
 
-      const [snapS, snapA, snapG] = await Promise.all([getDocs(qS), getDocs(qA), getDocs(qG)]);
+    const unsubC = onSnapshot(doc(db, 'classes', classId), (snap) => {
+      if (snap.exists()) {
+        setClassData({ id: snap.id, ...snap.data() } as Class);
+      }
+      classLoaded = true;
+      checkLoading();
+    }, (error) => handleFirestoreError(error, OperationType.GET, `classes/${classId}`));
 
-      setStudents(snapS.docs.map(doc => ({ id: doc.id, ...doc.data() } as Student)));
+    const unsubS = onSnapshot(qS, (snapS) => {
+      const fetchedStudents = snapS.docs.map(doc => ({ id: doc.id, ...doc.data() } as Student));
+      // Sort alphabetically by last name, then name
+      fetchedStudents.sort((a, b) => {
+        const lastNameA = (a.lastName || '').toLowerCase();
+        const lastNameB = (b.lastName || '').toLowerCase();
+        if (lastNameA !== lastNameB) return lastNameA.localeCompare(lastNameB);
+        return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+      });
+      setStudents(fetchedStudents);
+      studentsLoaded = true;
+      checkLoading();
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'gradebook_data'));
+
+    const unsubA = onSnapshot(qA, (snapA) => {
       setAssessments(snapA.docs.map(doc => ({ id: doc.id, ...doc.data() } as Assessment)));
+      assessmentsLoaded = true;
+      checkLoading();
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'gradebook_data'));
 
+    const unsubG = onSnapshot(qG, (snapG) => {
       const gradeMap: Record<string, number> = {};
       snapG.docs.forEach(doc => {
         const data = doc.data() as Grade;
         gradeMap[`${data.studentId}_${data.assessmentId}`] = data.score;
       });
       setGrades(gradeMap);
-    } catch (error) {
-       handleFirestoreError(error, OperationType.LIST, 'gradebook_data');
-    } finally {
-      setLoading(false);
-    }
-  };
+      gradesLoaded = true;
+      checkLoading();
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'gradebook_data'));
 
-  useEffect(() => {
-    fetchData();
+    return () => {
+      unsubC();
+      unsubS();
+      unsubA();
+      unsubG();
+    };
   }, [classId, teacherId]);
 
   const updateGrade = async (studentId: string, assessmentId: string, score: string) => {
@@ -149,9 +175,31 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
   const filteredAssessments = React.useMemo(() => {
     let arr = assessments.filter(a => trimester !== 'all' && a.trimester === Number(trimester));
     
-    if (categoryFilter !== 'all') {
+    // Filter out orphans (assessments that have a parentId but that parent doesn't exist)
+    // Actually, we want to KEEP them but treat them as top-level if their parent is missing
+    // so they are still visible and accounted for.
+    arr = arr.filter(a => {
+      if (!a.parentId || a.parentId === 'none') return true;
+      // If it has a parent, it stays IF the parent exists OR if we want to show it as an orphan 
+      // (in the table headers we show everything that's filtered).
+      return true; 
+    });
+
+    if (categoryFilter === 'independent') {
       arr = arr.filter(a => {
-        return a.id === categoryFilter || a.parentId === categoryFilter;
+        if (a.isCategory) return false;
+        const parentId = a.parentId;
+        // Independent if no parent or parent is missing from the list
+        return !parentId || parentId === 'none' || !assessments.some(p => p.id === parentId);
+      });
+    } else if (categoryFilter !== 'all') {
+      arr = arr.filter(a => {
+        // Show selected category and its children
+        if (a.id === categoryFilter || a.parentId === categoryFilter) return true;
+        
+        // Also show items that don't belong to any valid category (independent items)
+        const isIndependent = !a.isCategory && (!a.parentId || a.parentId === 'none' || !assessments.some(p => p.id === a.parentId));
+        return isIndependent;
       });
     }
 
@@ -162,8 +210,8 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
       }
       
       // 2. Identify top-level parents
-      const parentA = a.parentId && a.parentId !== 'none' ? a.parentId : a.id;
-      const parentB = b.parentId && b.parentId !== 'none' ? b.parentId : b.id;
+      const parentA = a.parentId && a.parentId !== 'none' && assessments.some(p => p.id === a.parentId) ? a.parentId : a.id;
+      const parentB = b.parentId && b.parentId !== 'none' && assessments.some(p => p.id === b.parentId) ? b.parentId : b.id;
       
       if (parentA !== parentB) {
         // They belong to different groups/independent assessments.
@@ -181,6 +229,82 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
       return a.title.localeCompare(b.title);
     });
   }, [assessments, trimester, categoryFilter]);
+
+  // Helper to get consistent colors for categories
+  const getCategoryColor = (parentId: string | null | undefined) => {
+    if (!parentId || parentId === 'none') return null;
+    
+    // Check for specific keywords to assign dedicated colors
+    const parentDoc = assessments.find(a => a.id === parentId);
+    if (parentDoc) {
+      const title = parentDoc.title.toLowerCase().trim();
+      if (title.includes('trabajo')) {
+        return 'bg-orange-500/8 border-orange-500/20 text-orange-600';
+      }
+      if (title.includes('examen') || title.includes('prueb')) {
+        return 'bg-purple-500/8 border-purple-500/20 text-purple-600';
+      }
+    }
+
+    // Default palette for other categories
+    const colors = [
+      'bg-blue-500/8 border-blue-500/20 text-blue-600',
+      'bg-indigo-500/8 border-indigo-500/20 text-indigo-600',
+      'bg-rose-500/8 border-rose-500/20 text-rose-600',
+      'bg-emerald-500/8 border-emerald-500/20 text-emerald-600',
+      'bg-amber-500/8 border-amber-500/20 text-amber-600',
+      'bg-cyan-500/8 border-cyan-500/20 text-cyan-600',
+    ];
+    
+    // Get all category IDs for consistent indexing
+    const categories = assessments.filter(a => a.isCategory);
+    const index = categories.findIndex(c => c.id === parentId);
+    
+    if (index === -1) return null;
+    return colors[index % colors.length];
+  };
+
+  const getCategoryTheme = (id: string, isCategory: boolean, parentId: string | null | undefined) => {
+    if (isCategory) {
+      const theme = getCategoryColor(id) || 'bg-primary/5 border-primary/20 text-primary';
+      const colorParts = theme.split(' ');
+      const textClass = colorParts[2];
+      const indicatorClass = textClass.replace('text-', 'bg-');
+      return {
+        bg: colorParts[0], 
+        border: colorParts[1].replace('/20', '/40'),
+        text: textClass, 
+        indicator: indicatorClass,
+        accent: indicatorClass 
+      };
+    }
+    
+    if (parentId && parentId !== 'none') {
+      const parentIsPresent = assessments.some(p => p.id === parentId);
+      if (parentIsPresent) {
+        const theme = getCategoryColor(parentId);
+        if (theme) {
+          const colorParts = theme.split(' ');
+          const textClass = colorParts[2];
+          return {
+            bg: colorParts[0].replace('/8', '/3'), 
+            border: colorParts[1].replace('/20', '/10'),
+            text: textClass,
+            indicator: textClass.replace('text-', 'bg-'),
+            accent: null
+          };
+        }
+      }
+    }
+    
+    return {
+      bg: 'bg-muted/30',
+      border: 'border-border/50',
+      text: 'text-foreground',
+      indicator: 'bg-muted-foreground/30',
+      accent: null
+    };
+  };
 
   const studentGrades = React.useMemo(() => {
     const map: Record<string, number | null> = {};
@@ -240,8 +364,8 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
 
     [1, 2, 3].forEach(tri => {
       const list = assessments.filter(a => a.trimester === tri);
-      // ONLY Top-level assessments (either categories or independent ones)
-      const topLevel = list.filter(a => !a.parentId || a.parentId === 'none');
+      // Top-level assessments are those with no parent, parent='none', or whose parent no longer exists
+      const topLevel = list.filter(a => !a.parentId || a.parentId === 'none' || !assessments.some(p => p.id === a.parentId));
 
       students.forEach(s => {
         let totalWeight = 0;
@@ -275,15 +399,22 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
       return avg !== null ? avg.toFixed(2) : '-';
     }
 
-    const t1 = calculateTrimesterAvg(studentId, 1);
-    const t2 = calculateTrimesterAvg(studentId, 2);
-    const t3 = calculateTrimesterAvg(studentId, 3);
+    const weights = classData?.trimesterWeights || { 1: 33.33, 2: 33.33, 3: 33.34 };
+    let totalContribution = 0;
+    let totalWeightUsed = 0;
+
+    [1, 2, 3].forEach(t => {
+      const triAvg = calculateTrimesterAvg(studentId, t);
+      if (triAvg !== null) {
+        const tWeight = (weights[t as keyof typeof weights] || 33.33) / 100;
+        totalContribution += triAvg * tWeight;
+        totalWeightUsed += tWeight;
+      }
+    });
     
-    const grades_list = [t1, t2, t3].filter(g => g !== null) as number[];
-    if (grades_list.length === 0) return '-';
-    
-    const final = grades_list.reduce((a, b) => a + b, 0) / grades_list.length;
-    return final.toFixed(2);
+    if (totalWeightUsed === 0) return '-';
+    // Normalize if not all trimesters have grades yet
+    return (totalContribution / totalWeightUsed).toFixed(2);
   };
 
   const filteredStudents = students.filter(s => 
@@ -672,30 +803,43 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
               {trimester !== 'all' && (
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                   <SelectTrigger className="w-full sm:w-[150px] rounded-full h-8 sm:h-10 text-xs sm:text-sm">
-                    <SelectValue placeholder="Categoría" />
+                    <SelectValue>
+                      {categoryFilter === 'all' ? 'Todas' : 
+                       categoryFilter === 'independent' ? 'Sin categoría' :
+                       (assessments.find(a => a.id === categoryFilter)?.title || 'Categoría')}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todas las notas</SelectItem>
-                    {assessments
-                      .filter(a => a.isCategory && a.trimester === Number(trimester))
-                      .sort((a, b) => a.title.localeCompare(b.title))
-                      .map(cat => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          {cat.title}
-                        </SelectItem>
-                    ))}
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="independent">Sin categoría</SelectItem>
+                    <SelectGroup>
+                      <SelectLabel className="text-[10px] uppercase tracking-widest opacity-50 px-2 py-1.5">Categorías</SelectLabel>
+                      {assessments
+                        .filter(a => a.isCategory && a.trimester === Number(trimester))
+                        .sort((a, b) => a.title.localeCompare(b.title))
+                        .map(cat => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.title}
+                          </SelectItem>
+                      ))}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
               )}
               <Select value={trimester} onValueChange={(v) => { setTrimester(v); setCategoryFilter('all'); }}>
                   <SelectTrigger className="w-full sm:w-[150px] rounded-full h-8 sm:h-10 text-xs sm:text-sm">
-                      <SelectValue />
+                      <SelectValue>
+                        {trimester === '1' ? '1º Trimestre' :
+                         trimester === '2' ? '2º Trimestre' :
+                         trimester === '3' ? '3º Trimestre' :
+                         'Resumen Final'}
+                      </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                       <SelectItem value="1">1º Trimestre</SelectItem>
                       <SelectItem value="2">2º Trimestre</SelectItem>
                       <SelectItem value="3">3º Trimestre</SelectItem>
-                      <SelectItem value="all">Resumen Final (Anual)</SelectItem>
+                      <SelectItem value="all">Resumen Final</SelectItem>
                   </SelectContent>
               </Select>
           </div>
@@ -713,18 +857,54 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
                       <TableHead className="text-center font-bold">3º Trim</TableHead>
                     </>
                   ) : (
-                    filteredAssessments.map(a => (
-                      <TableHead key={a.id} className={`text-center min-w-[120px] ${a.isCategory ? 'bg-primary/5' : 'bg-muted/50'} ${a.parentId ? 'border-l border-border' : ''}`}>
-                        <div className="flex flex-col items-center">
-                          <span className="text-[10px] uppercase font-bold text-muted-foreground">
-                            {(a.weight * 100).toFixed(0)}% {a.parentId ? '(Peso rel.)' : '(Peso total)'}
-                          </span>
-                          <span className={`text-xs font-bold leading-tight ${a.isCategory ? 'text-primary' : ''}`}>
-                            {a.title}
-                          </span>
-                        </div>
-                      </TableHead>
-                    ))
+                    filteredAssessments.map(a => {
+                      const isSub = a.parentId && a.parentId !== 'none' && assessments.some(p => p.id === a.parentId);
+                      const parentTitle = isSub ? assessments.find(p => p.id === a.parentId)?.title : null;
+                      const theme = getCategoryTheme(a.id, a.isCategory, a.parentId);
+                      
+                      return (
+                        <TableHead 
+                          key={a.id} 
+                          className={`text-center min-w-[140px] px-2 py-4 transition-all duration-200 border-r border-border/50 relative
+                            ${theme.bg}
+                            ${(a.parentId && a.parentId !== 'none') ? `border-l-2 ${theme.border.replace('border-', 'border-l-')}` : ''}
+                          `}
+                        >
+                          {a.isCategory && theme.accent && (
+                            <div className={`absolute top-0 left-0 right-0 h-1 ${theme.accent}`} />
+                          )}
+                          <div className="flex flex-col items-center gap-1.5 pt-1">
+                            <div className="flex items-center gap-1.5">
+                              <div className={`w-1.5 h-1.5 rounded-full ${theme.indicator}`} />
+                              <span className={`text-[9px] uppercase font-black tracking-widest ${theme.text}`}>
+                                {(a.weight * 100).toFixed(0)}%
+                              </span>
+                            </div>
+                            
+                            <div className="flex flex-col">
+                              <span className={`text-[11px] font-bold leading-none tracking-tight break-words max-w-[120px] ${a.isCategory ? theme.text : 'text-foreground'}`}>
+                                {a.title}
+                              </span>
+                              {isSub && (
+                                <span className={`text-[8px] font-medium mt-0.5 opacity-70 italic truncate max-w-[100px] ${theme.text}`}>
+                                  en {parentTitle}
+                                </span>
+                              )}
+                              {!isSub && !a.isCategory && (
+                                <span className="text-[8px] font-medium text-muted-foreground mt-0.5 opacity-40 uppercase tracking-tighter">
+                                  Independiente
+                                </span>
+                              )}
+                              {a.isCategory && (
+                                <span className={`text-[8px] font-bold mt-0.5 uppercase tracking-tighter ${theme.text} opacity-80`}>
+                                  Categoría
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </TableHead>
+                      );
+                    })
                   )}
                   <TableHead className="text-center font-bold bg-card sm:bg-card text-primary sm:sticky sm:right-0 sm:z-20 w-[80px] sm:w-[120px] shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                     {trimester === 'all' ? 'Nota Final' : 'Media Trim.'}
@@ -738,8 +918,14 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
                       No se encontraron alumnos.
                     </TableCell>
                   </TableRow>
-                ) : filteredStudents.map(student => (
-                  <TableRow key={student.id} className="hover:bg-muted/30 transition-colors group">
+                ) : filteredStudents.map((student, index) => (
+                  <motion.tr 
+                    key={student.id} 
+                    className="hover:bg-muted/30 transition-colors group"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2, delay: index * 0.03 }}
+                  >
                     <TableCell className="px-4 sm:px-8 font-medium border-r sticky left-0 bg-card group-hover:bg-muted z-10 text-xs sm:text-sm max-w-[130px] sm:max-w-none truncate shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                       <div className="flex items-center gap-3">
                         <Button
@@ -751,7 +937,7 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
                         >
                           <Download className="w-4 h-4" />
                         </Button>
-                        <span className="truncate">
+                        <span className="truncate font-bold text-slate-800 dark:text-slate-200 tracking-tight">
                           {student.lastName ? `${student.lastName}, ${student.name}` : student.name}
                         </span>
                       </div>
@@ -777,28 +963,32 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
                       filteredAssessments.map(a => {
                         const score = calculateAssessmentScore(student.id, a.id);
                         const hasChildren = assessments.some(child => child.parentId === a.id);
+                        const theme = getCategoryTheme(a.id, a.isCategory, a.parentId);
                         
                         return (
-                          <TableCell key={a.id} className={`p-1 sm:p-2 border-r ${a.isCategory ? 'bg-primary/5' : ''}`}>
-                              <div className="flex justify-center">
-                                {hasChildren ? (
-                                  <div className="text-center flex justify-center">
-                                    <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md ${
-                                      score === null ? 'text-muted-foreground' :
-                                      score >= 5 ? 'bg-green-500/10 text-green-700 dark:text-green-400' : 'bg-red-500/10 text-red-700 dark:text-red-400'
-                                    }`}>
-                                      {score !== null ? score.toFixed(1) : '-'}
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <GradeInput 
-                                    studentId={student.id}
-                                    assessmentId={a.id}
-                                    initialValue={grades[`${student.id}_${a.id}`]}
-                                    onSave={(val) => updateGrade(student.id, a.id, val)}
-                                  />
-                                )}
-                              </div>
+                          <TableCell 
+                            key={a.id} 
+                            className={`p-1 sm:p-2 border-r transition-colors ${theme.bg.replace('/30', '/2').replace('/20', '/2').replace('/15', '/2').replace('/10', '/2').replace('/8', '/2')}`}
+                          >
+                            <div className="flex justify-center">
+                              {hasChildren ? (
+                                <div className="text-center flex justify-center">
+                                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border ${
+                                    score === null ? 'bg-muted/30 text-muted-foreground border-transparent' :
+                                    score >= 5 ? 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20'
+                                  }`}>
+                                    {score !== null ? score.toFixed(1) : '-'}
+                                  </span>
+                                </div>
+                              ) : (
+                                <GradeInput 
+                                  studentId={student.id}
+                                  assessmentId={a.id}
+                                  initialValue={grades[`${student.id}_${a.id}`]}
+                                  onSave={(val) => updateGrade(student.id, a.id, val)}
+                                />
+                              )}
+                            </div>
                           </TableCell>
                         );
                       })
@@ -816,7 +1006,7 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
                         {calculateFinal(student.id)}
                       </Badge>
                     </TableCell>
-                  </TableRow>
+                  </motion.tr>
                 ))}
               </TableBody>
             </Table>

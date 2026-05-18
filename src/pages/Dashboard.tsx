@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/src/context/AuthContext';
 import { db, handleFirestoreError, OperationType } from '@/src/firebase';
-import { collection, query, where, getDocs, addDoc, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, deleteDoc, doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { Class } from '@/src/types';
 import Navbar from '@/src/components/layout/Navbar';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Plus, BookOpen, Users, Trash2, ArrowRight, HelpCircle, Lightbulb } from 'lucide-react';
+import { Plus, BookOpen, Users, Trash2, ArrowRight, HelpCircle, Lightbulb, Pencil, Target } from 'lucide-react';
 import { 
   Dialog, 
   DialogContent, 
@@ -21,50 +22,82 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
+import { usePlan } from '@/src/lib/usePlan';
+import { useTutorial } from '@/src/lib/useTutorial';
+import { StaggerContainer, StaggerItem } from '@/src/components/layout/FadeIn';
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { limits, plan } = usePlan();
   const [classes, setClasses] = useState<Class[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [showTutorial, setShowTutorial] = useState(false);
+  const { showTutorial, closeTutorial, openTutorial: setShowTutorial } = useTutorial('dashboard');
   const [deleteId, setDeleteId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const hasSeen = localStorage.getItem('hasSeenDashboardTutorial');
-    if (!hasSeen) {
-      setShowTutorial(true);
-    }
-  }, []);
-
-  const closeTutorial = () => {
-    setShowTutorial(false);
-    localStorage.setItem('hasSeenDashboardTutorial', 'true');
-  };
+  const [editId, setEditId] = useState<string | null>(null);
   const [newClassName, setNewClassName] = useState('');
   const [newSubject, setNewSubject] = useState('');
+  const [newWeights, setNewWeights] = useState<Record<number, number>>({ 1: 33.33, 2: 33.33, 3: 33.34 });
+  const [editClassName, setEditClassName] = useState('');
+  const [editSubject, setEditSubject] = useState('');
+  const [editWeights, setEditWeights] = useState<Record<number, number>>({ 1: 33.33, 2: 33.33, 3: 33.34 });
 
-  const fetchClasses = async () => {
+  useEffect(() => {
     if (!user) return;
-    try {
-      const q = query(collection(db, 'classes'), where('teacherId', '==', user.uid));
-      const querySnapshot = await getDocs(q);
+    setLoading(true);
+    const q = query(collection(db, 'classes'), where('teacherId', '==', user.uid));
+    
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const fetchedClasses = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Class));
       setClasses(fetchedClasses);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, 'classes');
-    } finally {
       setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'classes');
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const handleEditSubmit = async () => {
+    if (!editId || !editClassName || !editSubject) {
+      toast.error('Por favor rellena todos los campos');
+      return;
+    }
+    
+    const totalW = (Object.values(editWeights) as number[]).reduce((a, b) => a + (b || 0), 0);
+    if (Math.abs(totalW - 100) > 0.1) {
+      toast.error('El porcentaje total de los trimestres debe sumar 100%');
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'classes', editId), {
+        name: editClassName,
+        subject: editSubject,
+        trimesterWeights: editWeights,
+      });
+      toast.success('Clase actualizada correctamente');
+      setEditId(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `classes/${editId}`);
     }
   };
 
-  useEffect(() => {
-    fetchClasses();
-  }, [user]);
-
   const handleAddClass = async () => {
+    if (classes.length >= limits.classLimit) {
+      toast.error(`Has alcanzado el límite de ${limits.classLimit} clases en tu plan ${plan}. Mejora tu plan para añadir más.`);
+      setIsAddDialogOpen(false);
+      return;
+    }
     if (!newClassName || !newSubject || !user) {
       toast.error('Por favor rellena todos los campos');
+      return;
+    }
+
+    const totalW = (Object.values(newWeights) as number[]).reduce((a, b) => a + (b || 0), 0);
+    if (Math.abs(totalW - 100) > 0.1) {
+      toast.error('El porcentaje total de los trimestres debe sumar 100%');
       return;
     }
 
@@ -74,13 +107,14 @@ export default function Dashboard() {
         subject: newSubject,
         teacherId: user.uid,
         trimesters: 3,
+        trimesterWeights: newWeights,
         createdAt: serverTimestamp(),
       });
       toast.success('Clase creada correctamente');
       setNewClassName('');
       setNewSubject('');
+      setNewWeights({ 1: 33.33, 2: 33.33, 3: 33.34 });
       setIsAddDialogOpen(false);
-      fetchClasses();
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'classes');
     }
@@ -92,7 +126,6 @@ export default function Dashboard() {
       await deleteDoc(doc(db, 'classes', deleteId));
       toast.success('Clase eliminada');
       setDeleteId(null);
-      fetchClasses();
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `classes/${deleteId}`);
     }
@@ -102,12 +135,15 @@ export default function Dashboard() {
     <div className="min-h-screen">
       <Navbar />
       
-      <main className="max-w-7xl mx-auto px-4 py-12">
-        <div className="flex flex-col md:flex-row justify-between items-center md:items-end gap-6 mb-10 text-center md:text-left">
+      <StaggerContainer className="max-w-7xl mx-auto px-4 py-12">
+        <StaggerItem className="flex flex-col md:flex-row justify-between items-center md:items-end gap-6 mb-10 text-center md:text-left" variant="fadeUp">
           <div className="w-full md:w-auto">
             <p className="text-sm text-primary font-semibold uppercase tracking-wider">Escritorio de Gestión</p>
             <div className="flex items-center gap-2">
               <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground tracking-tight">Tus Clases</h1>
+              <Badge variant="outline" className="h-6 rounded-full border-border bg-muted/40 font-mono text-[10px] text-muted-foreground">
+                {classes.length} / {limits.classLimit === Infinity ? '∞' : limits.classLimit}
+              </Badge>
               <Button
                 variant="ghost" 
                 size="icon" 
@@ -120,12 +156,7 @@ export default function Dashboard() {
           </div>
           
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger 
-              nativeButton={true}
-              render={
-                <Button className="rounded-xl px-6 bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all border-none" />
-              }
-            >
+            <DialogTrigger className="rounded-xl h-11 px-6 bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all border-none inline-flex items-center justify-center cursor-pointer">
               <Plus className="w-4 h-4 mr-2" /> Nueva Clase
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px] bg-popover/80 backdrop-blur-xl border-border rounded-3xl">
@@ -141,28 +172,51 @@ export default function Dashboard() {
                   <Label htmlFor="subject">Asignatura</Label>
                   <Input id="subject" value={newSubject} onChange={(e) => setNewSubject(e.target.value)} placeholder="Ej: Matemáticas" className="bg-background/50 border-border rounded-xl" />
                 </div>
+                <div className="grid gap-2">
+                  <Label className="text-sm font-bold flex items-center gap-2">
+                    <Target className="w-4 h-4 text-primary" />
+                    Ponderación del Curso (%)
+                  </Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[1, 2, 3].map(t => (
+                      <div key={t} className="space-y-1">
+                        <Label htmlFor={`new-t${t}`} className="text-[10px] text-muted-foreground uppercase font-bold">Trimestre {t}</Label>
+                        <Input 
+                          id={`new-t${t}`}
+                          type="number" 
+                          value={newWeights[t]} 
+                          onChange={(e) => setNewWeights(prev => ({ ...prev, [t]: parseFloat(e.target.value) }))}
+                          className="bg-background/50 border-border rounded-xl h-9 text-xs" 
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground italic">
+                    Total: {(Object.values(newWeights) as number[]).reduce((a, b) => a + (b || 0), 0).toFixed(2)}% (Debe sumar 100%)
+                  </p>
+                </div>
               </div>
               <DialogFooter>
                 <Button onClick={handleAddClass} className="w-full rounded-xl py-6 font-bold">Crear Clase</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
+        </StaggerItem>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <StaggerItem className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" variant="fadeUp">
             {[1, 2, 3].map(i => <div key={i} className="h-48 bg-card/40 animate-pulse rounded-2xl border border-border" />)}
-          </div>
+          </StaggerItem>
         ) : classes.length === 0 ? (
-          <div className="text-center py-20 bg-card/60 backdrop-blur-md border border-border rounded-3xl shadow-xl">
+          <StaggerItem className="text-center py-20 bg-card/60 backdrop-blur-md border border-border rounded-3xl shadow-xl" variant="scaleIn">
             <BookOpen className="w-12 h-12 text-primary/50 mx-auto mb-4" />
             <h3 className="text-xl font-bold text-foreground">No hay clases aún</h3>
             <p className="text-muted-foreground max-w-xs mx-auto mt-2">Comienza creando tu primera clase para gestionar alumnos y evaluaciones.</p>
-          </div>
+          </StaggerItem>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {classes.map((cls) => (
-              <motion.div key={cls.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+              <StaggerItem key={cls.id} variant="scaleIn">
                 <Link to={`/class/${cls.id}`}>
                   <Card className="group relative overflow-hidden flex flex-col h-full rounded-2xl bg-card/60 backdrop-blur-md border border-border shadow-xl hover:shadow-2xl hover:bg-card/80 active:scale-[0.98] hover:scale-[1.01] transition-all duration-300 cursor-pointer">
                     <CardHeader className="pb-4">
@@ -170,18 +224,35 @@ export default function Dashboard() {
                         <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary border border-primary/20 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                           <BookOpen className="w-5 h-5" />
                         </div>
-                        <Button
-                          variant="ghost" 
-                          size="icon" 
-                          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setDeleteId(cls.id);
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setEditClassName(cls.name);
+                              setEditSubject(cls.subject);
+                              setEditWeights(cls.trimesterWeights || { 1: 33.33, 2: 33.33, 3: 33.34 });
+                              setEditId(cls.id);
+                            }}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setDeleteId(cls.id);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                       <CardTitle className="mt-4 font-display font-bold text-2xl tracking-tight text-foreground group-hover:text-primary transition-colors">{cls.name}</CardTitle>
                       <CardDescription className="font-semibold text-muted-foreground">{cls.subject}</CardDescription>
@@ -199,11 +270,11 @@ export default function Dashboard() {
                     </CardContent>
                   </Card>
                 </Link>
-              </motion.div>
+              </StaggerItem>
             ))}
           </div>
         )}
-      </main>
+      </StaggerContainer>
       <Dialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
@@ -215,6 +286,51 @@ export default function Dashboard() {
           <DialogFooter className="flex gap-2">
             <Button variant="outline" onClick={() => setDeleteId(null)}>Cancelar</Button>
             <Button variant="destructive" onClick={handleDeleteClass}>Eliminar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editId} onOpenChange={(open) => !open && setEditId(null)}>
+        <DialogContent className="sm:max-w-[425px] bg-popover/80 backdrop-blur-xl border-border rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="font-display font-bold text-2xl">Editar Clase</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="editClassName">Nombre de la Clase</Label>
+              <Input id="editClassName" value={editClassName} onChange={(e) => setEditClassName(e.target.value)} placeholder="Ej: 2º ESO A" className="bg-background/50 border-border rounded-xl" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="editSubject">Asignatura</Label>
+              <Input id="editSubject" value={editSubject} onChange={(e) => setEditSubject(e.target.value)} placeholder="Ej: Matemáticas" className="bg-background/50 border-border rounded-xl" />
+            </div>
+            <div className="grid gap-2">
+              <Label className="text-sm font-bold flex items-center gap-2">
+                <Target className="w-4 h-4 text-primary" />
+                Ponderación del Curso (%)
+              </Label>
+              <div className="grid grid-cols-3 gap-2">
+                {[1, 2, 3].map(t => (
+                  <div key={t} className="space-y-1">
+                    <Label htmlFor={`edit-t${t}`} className="text-[10px] text-muted-foreground uppercase font-bold">Trimestre {t}</Label>
+                    <Input 
+                      id={`edit-t${t}`}
+                      type="number" 
+                      value={editWeights[t] || 0} 
+                      onChange={(e) => setEditWeights(prev => ({ ...prev, [t]: parseFloat(e.target.value) }))}
+                      className="bg-background/50 border-border rounded-xl h-9 text-xs" 
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground italic">
+                Total: {(Object.values(editWeights) as number[]).reduce((a, b) => a + (b || 0), 0).toFixed(2)}% (Debe sumar 100%)
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditId(null)} className="rounded-xl font-bold">Cancelar</Button>
+            <Button onClick={handleEditSubmit} className="rounded-xl font-bold">Guardar Cambios</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

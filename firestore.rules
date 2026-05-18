@@ -29,10 +29,12 @@ service cloud.firestore {
 
     // --- Validation Blueprints ---
     function isValidTeacher(data) {
-      return data.keys().hasAll(['uid', 'email', 'name', 'createdAt']) &&
+      return data.keys().hasAll(['uid', 'email', 'name', 'plan', 'subscriptionStatus', 'createdAt']) &&
              data.uid == request.auth.uid &&
              data.email is string &&
              data.name is string && data.name.size() <= 100 &&
+             data.plan in ['free', 'pro', 'premium'] &&
+             data.subscriptionStatus is string &&
              data.createdAt == request.time &&
              (data.get('preferences', null) == null || data.preferences is map);
     }
@@ -43,7 +45,7 @@ service cloud.firestore {
              data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
              data.subject is string &&
              data.trimesters is int && data.trimesters >= 1 && data.trimesters <= 4 &&
-             data.createdAt == request.time;
+             data.createdAt is timestamp;
     }
 
     function isValidStudent(data) {
@@ -53,7 +55,7 @@ service cloud.firestore {
              data.lastName is string && data.lastName.size() <= 100 &&
              data.classId is string &&
              (data.get('email', '') is string) &&
-             (data.get('parentEmail', '') is string) &&
+             (data.get('parentName', '') is string) &&
              (data.get('dni', '') is string) &&
              (data.get('phone', '') is string) &&
              (data.get('address', '') is string);
@@ -103,6 +105,7 @@ service cloud.firestore {
     // --- Core Rules ---
 
     match /teachers/{userId} {
+      allow list: if isSignedIn();
       allow get: if isSignedIn() && userId == request.auth.uid;
       allow create: if isSignedIn() && userId == request.auth.uid && isValidTeacher(incoming());
       allow update: if isSignedIn() && userId == request.auth.uid && 
@@ -113,14 +116,18 @@ service cloud.firestore {
                        incoming().preferences is map)
                     ) &&
                     incoming().email == existing().email &&
+                    incoming().plan == existing().plan &&
+                    incoming().subscriptionStatus == existing().subscriptionStatus &&
                     incoming().createdAt == existing().createdAt;
     }
 
     match /classes/{classId} {
       allow list: if isTeacherOwned(resource.data);
       allow get: if isTeacherOwned(resource.data);
-      allow create: if isSignedIn() && isValidId(classId) && isValidClass(incoming());
+      allow create: if isSignedIn() && isValidId(classId) && isValidClass(incoming()) && incoming().createdAt == request.time;
       allow update: if isTeacherOwned(existing()) && isValidClass(incoming()) &&
+                    incoming().createdAt == existing().createdAt &&
+                    incoming().teacherId == existing().teacherId &&
                     incoming().diff(existing()).affectedKeys().hasOnly(['name', 'subject', 'trimesters']);
       allow delete: if isTeacherOwned(existing());
     }
@@ -134,7 +141,7 @@ service cloud.firestore {
                     incoming().createdAt == existing().createdAt &&
                     incoming().teacherId == existing().teacherId &&
                     (incoming().get('updatedAt', null) == null || incoming().updatedAt == request.time) &&
-                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'lastName', 'dni', 'email', 'parentEmail', 'phone', 'address', 'classId', 'updatedAt']);
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'lastName', 'dni', 'email', 'parentName', 'phone', 'address', 'classId', 'updatedAt']);
       allow delete: if isTeacherOwned(existing());
     }
 

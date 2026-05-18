@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { db, handleFirestoreError, OperationType } from '@/src/firebase';
-import { collection, query, where, getDocs, setDoc, doc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, setDoc, doc, serverTimestamp, getDoc, onSnapshot } from 'firebase/firestore';
 import { Student, Attendance } from '@/src/types';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,9 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import { motion } from 'motion/react';
+
+import { useTutorial } from '@/src/lib/useTutorial';
 
 export default function AttendanceTracker({ classId, teacherId }: { classId: string, teacherId: string }) {
   const [students, setStudents] = useState<Student[]>([]);
@@ -29,63 +32,53 @@ export default function AttendanceTracker({ classId, teacherId }: { classId: str
   const [attendance, setAttendance] = useState<Record<string, 'present' | 'absent' | 'late'>>({});
   const [date, setDate] = useState<Date>(new Date());
   const [loading, setLoading] = useState(true);
-  const [showTutorial, setShowTutorial] = useState(false);
+  const { showTutorial, closeTutorial, openTutorial: setShowTutorial } = useTutorial('attendance');
 
   useEffect(() => {
-    const hasSeen = localStorage.getItem('hasSeenAttendanceTutorial');
-    if (!hasSeen) {
-      setShowTutorial(true);
-    }
-  }, []);
-
-  const closeTutorial = () => {
-    setShowTutorial(false);
-    localStorage.setItem('hasSeenAttendanceTutorial', 'true');
-  };
-
-  const fetchStudents = async () => {
-    try {
-      const q = query(
-        collection(db, 'students'), 
-        where('classId', '==', classId),
-        where('teacherId', '==', teacherId)
-      );
-      const snap = await getDocs(q);
-      setStudents(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Student)));
-    } catch (error) {
+    const qS = query(
+      collection(db, 'students'), 
+      where('classId', '==', classId),
+      where('teacherId', '==', teacherId)
+    );
+    const unsubS = onSnapshot(qS, (snap) => {
+      const fetchedStudents = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Student));
+      fetchedStudents.sort((a, b) => {
+        const lastNameA = (a.lastName || '').toLowerCase();
+        const lastNameB = (b.lastName || '').toLowerCase();
+        if (lastNameA !== lastNameB) return lastNameA.localeCompare(lastNameB);
+        return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+      });
+      setStudents(fetchedStudents);
+    }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'students');
-    }
-  };
+    });
 
-  const fetchAttendance = async (targetDate: Date) => {
-    const dateStr = format(targetDate, 'yyyy-MM-dd');
-    try {
-      const q = query(
-        collection(db, 'attendance'), 
-        where('classId', '==', classId),
-        where('teacherId', '==', teacherId),
-        where('date', '==', dateStr)
-      );
-      const snap = await getDocs(q);
+    return () => unsubS();
+  }, [classId, teacherId]);
+
+  useEffect(() => {
+    setLoading(true);
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const qA = query(
+      collection(db, 'attendance'), 
+      where('classId', '==', classId),
+      where('teacherId', '==', teacherId),
+      where('date', '==', dateStr)
+    );
+    const unsubA = onSnapshot(qA, (snap) => {
       const records: Record<string, 'present' | 'absent' | 'late'> = {};
       snap.docs.forEach(doc => {
         const data = doc.data();
         records[data.studentId] = data.status;
       });
       setAttendance(records);
-    } catch (error) {
-       handleFirestoreError(error, OperationType.LIST, 'attendance');
-    } finally {
       setLoading(false);
-    }
-  };
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'attendance');
+      setLoading(false);
+    });
 
-  useEffect(() => {
-    fetchStudents();
-  }, [classId, teacherId]);
-
-  useEffect(() => {
-    fetchAttendance(date);
+    return () => unsubA();
   }, [classId, teacherId, date]);
 
   const filteredStudents = students.filter(s => 
@@ -182,8 +175,14 @@ export default function AttendanceTracker({ classId, teacherId }: { classId: str
                     No se encontraron alumnos.
                   </TableCell>
                 </TableRow>
-              ) : filteredStudents.map(student => (
-                <TableRow key={student.id} className="group hover:bg-muted/30 transition-colors">
+              ) : filteredStudents.map((student, index) => (
+                <motion.tr 
+                  key={student.id} 
+                  className="group hover:bg-muted/30 transition-colors"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2, delay: index * 0.03 }}
+                >
                   <TableCell className="px-4 sm:px-8 py-3 sm:py-4 font-medium text-sm sm:text-base sticky left-0 bg-card z-10 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover:bg-muted">
                     {student.lastName ? `${student.lastName}, ${student.name}` : student.name}
                   </TableCell>
@@ -234,7 +233,7 @@ export default function AttendanceTracker({ classId, teacherId }: { classId: str
                       </Button>
                     </div>
                   </TableCell>
-                </TableRow>
+                </motion.tr>
               ))}
             </TableBody>
           </Table>

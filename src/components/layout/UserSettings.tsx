@@ -13,6 +13,7 @@ import {
   DialogDescription,
   DialogFooter
 } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,14 +26,18 @@ import {
   Upload,
   X,
   RotateCcw,
-  ZoomIn
+  ZoomIn,
+  CreditCard,
+  Settings
 } from 'lucide-react';
+import SubscriptionPlans from './SubscriptionPlans';
 import { toast } from 'sonner';
 import { useRef } from 'react';
 
 interface UserSettingsProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialSection?: 'profile' | 'billing';
 }
 
 const PRESET_AVATARS = [
@@ -44,12 +49,19 @@ const PRESET_AVATARS = [
   'https://api.dicebear.com/9.x/shapes/svg?seed=User6&backgroundColor=adb5bd',
 ];
 
-export default function UserSettings({ open, onOpenChange }: UserSettingsProps) {
+export default function UserSettings({ open, onOpenChange, initialSection = 'profile' }: UserSettingsProps) {
   const { user, profile } = useAuth();
   const { theme, setTheme } = useTheme();
   const [photoURL, setPhotoURL] = useState(profile?.preferences?.photoURL || user?.photoURL || '');
+  const [activeTab, setActiveTab] = useState(initialSection);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (open) {
+      setActiveTab(initialSection);
+    }
+  }, [open, initialSection]);
 
   // States for cropping
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
@@ -126,122 +138,153 @@ export default function UserSettings({ open, onOpenChange }: UserSettingsProps) 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[500px] rounded-3xl bg-popover border-border shadow-2xl overflow-hidden">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl font-display text-foreground">
-              <UserIcon className="w-5 h-5 text-primary" />
-              Privacidad y Ajustes
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              Personaliza tu apariencia en la plataforma.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-[600px] rounded-[2rem] bg-popover border-border shadow-2xl p-0 overflow-hidden">
+          <div className="flex flex-col h-[85vh] sm:h-auto sm:max-h-[85vh]">
+            <DialogHeader className="p-6 pb-2">
+              <DialogTitle className="flex items-center gap-2 text-xl font-display text-foreground">
+                <Settings className="w-5 h-5 text-primary" />
+                Configuración
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                Administra tu cuenta y preferencias de la plataforma.
+              </DialogDescription>
+            </DialogHeader>
 
-          <div className="space-y-8 py-6 max-h-[70vh] overflow-y-auto px-1 custom-scrollbar">
-            {/* Theme Section */}
-            <section className="space-y-4">
-              <Label className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Apariencia</Label>
-              
-              <div className="flex gap-4">
-                 <button
-                    onClick={() => setTheme('light')}
-                    className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all duration-300 ${
-                      theme === 'light' 
-                        ? 'border-primary bg-primary/5 text-primary' 
-                        : 'border-border bg-card text-muted-foreground hover:border-primary/50'
-                    }`}
-                 >
-                   <Sun className="w-6 h-6" />
-                   <span className="text-xs font-bold font-sans">Claro</span>
-                 </button>
-                 <button
-                    onClick={() => setTheme('dark')}
-                    className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all duration-300 ${
-                      theme === 'dark' 
-                        ? 'border-primary bg-primary/5 text-primary' 
-                        : 'border-border bg-card text-muted-foreground hover:border-primary/50'
-                    }`}
-                 >
-                   <Moon className="w-6 h-6" />
-                   <span className="text-xs font-bold font-sans">Oscuro</span>
-                 </button>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+              <div className="px-6 border-b border-border">
+                <TabsList className="bg-transparent h-12 gap-6 p-0">
+                  <TabsTrigger 
+                    value="profile" 
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-bold text-sm px-1 h-full transition-all"
+                  >
+                    Perfil y Apariencia
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="billing" 
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-bold text-sm px-1 h-full transition-all"
+                  >
+                    Pagos y Suscripciones
+                  </TabsTrigger>
+                </TabsList>
               </div>
-            </section>
 
-            {/* Profile Photo Section */}
-            <section className="space-y-4">
-              <Label className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Foto de Perfil</Label>
-              
-              <div className="flex flex-col gap-6">
-                <div className="flex items-center gap-6">
-                  <div className="relative group">
-                    <div className="w-24 h-24 rounded-3xl bg-muted border-2 border-border overflow-hidden shrink-0 shadow-lg">
-                      <img 
-                          src={photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${user?.displayName}`} 
-                          className="w-full h-full object-cover" 
-                          alt="Preview" 
-                      />
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+                <TabsContent value="profile" className="m-0 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  {/* Theme Section */}
+                  <section className="space-y-4">
+                    <Label className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Apariencia</Label>
+                    
+                    <div className="flex gap-4">
+                       <button
+                          onClick={() => setTheme('light')}
+                          className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all duration-300 ${
+                            theme === 'light' 
+                              ? 'border-primary bg-primary/5 text-primary' 
+                              : 'border-border bg-card text-muted-foreground hover:border-primary/50'
+                          }`}
+                       >
+                         <Sun className="w-6 h-6" />
+                         <span className="text-xs font-bold font-sans">Claro</span>
+                       </button>
+                       <button
+                          onClick={() => setTheme('dark')}
+                          className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all duration-300 ${
+                            theme === 'dark' 
+                              ? 'border-primary bg-primary/5 text-primary' 
+                              : 'border-border bg-card text-muted-foreground hover:border-primary/50'
+                          }`}
+                       >
+                         <Moon className="w-6 h-6" />
+                         <span className="text-xs font-bold font-sans">Oscuro</span>
+                       </button>
                     </div>
-                    {photoURL && (
-                      <button 
-                        onClick={() => setPhotoURL('')}
-                        className="absolute -top-2 -right-2 p-1.5 bg-destructive text-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    )}
-                  </div>
-                  
-                  <div className="flex-1 space-y-3">
-                    <input 
-                      type="file" 
-                      ref={fileInputRef}
-                      className="hidden" 
-                      accept="image/*"
-                      onChange={handleFileUpload}
-                    />
-                    <Button 
-                      variant="outline" 
-                      className="w-full h-11 rounded-2xl border-dashed border-2 hover:border-primary hover:bg-primary/5 gap-2 font-bold text-sm"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <Upload className="w-4 h-4" />
-                      Subir nueva foto
-                    </Button>
-                    <p className="text-[10px] text-muted-foreground text-center">
-                      Formatos: JPG, PNG o WebP. Máximo 5MB mejorado.
-                    </p>
-                  </div>
-                </div>
+                  </section>
 
-                <div className="space-y-3">
-                  <Label className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-tight">O elige un preset</Label>
-                  <div className="flex flex-wrap gap-2">
-                      {PRESET_AVATARS.map((url, i) => (
-                          <button
-                              key={i}
-                              onClick={() => setPhotoURL(url)}
-                              className={`w-8 h-8 rounded-lg overflow-hidden border-2 transition-all duration-200 ${photoURL === url ? 'border-primary ring-2 ring-primary/20 scale-105' : 'border-border hover:border-primary/40'}`}
+                  {/* Profile Photo Section */}
+                  <section className="space-y-4">
+                    <Label className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Foto de Perfil</Label>
+                    
+                    <div className="flex flex-col gap-6">
+                      <div className="flex items-center gap-6">
+                        <div className="relative group">
+                          <div className="w-24 h-24 rounded-3xl bg-muted border-2 border-border overflow-hidden shrink-0 shadow-lg">
+                            <img 
+                                src={photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${user?.displayName}`} 
+                                className="w-full h-full object-cover" 
+                                alt="Preview" 
+                            />
+                          </div>
+                          {photoURL && (
+                            <button 
+                              onClick={() => setPhotoURL('')}
+                              className="absolute -top-2 -right-2 p-1.5 bg-destructive text-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                        
+                        <div className="flex-1 space-y-3">
+                          <input 
+                            type="file" 
+                            ref={fileInputRef}
+                            className="hidden" 
+                            accept="image/*"
+                            onChange={handleFileUpload}
+                          />
+                          <Button 
+                            variant="outline" 
+                            className="w-full h-11 rounded-2xl border-dashed border-2 hover:border-primary hover:bg-primary/5 gap-2 font-bold text-sm"
+                            onClick={() => fileInputRef.current?.click()}
                           >
-                              <img src={url} className="w-full h-full" alt={`Avatar ${i}`} />
-                          </button>
-                      ))}
-                  </div>
-                </div>
-              </div>
-            </section>
-          </div>
+                            <Upload className="w-4 h-4" />
+                            Subir nueva foto
+                          </Button>
+                          <p className="text-[10px] text-muted-foreground text-center">
+                            Formatos: JPG, PNG o WebP. Máximo 5MB.
+                          </p>
+                        </div>
+                      </div>
 
-          <DialogFooter className="pt-2 border-t border-border">
-            <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl border-border hover:bg-muted text-foreground">Cancelar</Button>
-            <Button 
-              disabled={saving}
-              onClick={handleSaveProfile}
-              className="rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all gap-2 px-8 min-w-[120px]"
-            >
-              {saving ? 'Guardando...' : 'Guardar Perfil'}
-            </Button>
-          </DialogFooter>
+                      <div className="space-y-3">
+                        <Label className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-tight">Presets dinámicos</Label>
+                        <div className="flex flex-wrap gap-2">
+                            {PRESET_AVATARS.map((url, i) => (
+                                <button
+                                    key={i}
+                                    onClick={() => setPhotoURL(url)}
+                                    className={`w-8 h-8 rounded-lg overflow-hidden border-2 transition-all duration-200 ${photoURL === url ? 'border-primary ring-2 ring-primary/20 scale-105' : 'border-border hover:border-primary/40'}`}
+                                >
+                                    <img src={url} className="w-full h-full" alt={`Avatar ${i}`} />
+                                </button>
+                            ))}
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                </TabsContent>
+
+                <TabsContent value="billing" className="m-0 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <SubscriptionPlans />
+                </TabsContent>
+              </div>
+            </Tabs>
+
+            <DialogFooter className="p-6 pt-2 border-t border-border flex justify-end items-center bg-muted/30">
+              <div className="flex gap-2 w-full sm:w-auto">
+                <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl border-border hover:bg-muted text-foreground flex-1 sm:flex-none">Cerrar</Button>
+                {activeTab === 'profile' && (
+                  <Button 
+                    disabled={saving}
+                    onClick={handleSaveProfile}
+                    className="rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all gap-2 px-8 min-w-[120px] flex-1 sm:flex-none"
+                  >
+                    {saving ? 'Guardando...' : 'Guardar Perfil'}
+                  </Button>
+                )}
+              </div>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { db, handleFirestoreError, OperationType } from '@/src/firebase';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
-import { Student, Assessment, Grade } from '@/src/types';
+import { collection, query, where, getDocs, doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { Student, Assessment, Grade, Class } from '@/src/types';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { 
   Dialog, 
@@ -43,75 +43,89 @@ import {
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { HelpCircle, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { usePlan } from '@/src/lib/usePlan';
+import { useTutorial } from '@/src/lib/useTutorial';
+import { toast } from 'sonner';
 
 export default function Analytics({ classId, teacherId }: { classId: string, teacherId: string }) {
+  const { limits } = usePlan();
   const [students, setStudents] = useState<Student[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [grades, setGrades] = useState<Record<string, number>>({});
   const [className, setClassName] = useState<string>('');
+  const [classData, setClassData] = useState<Class | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showTutorial, setShowTutorial] = useState(false);
+  const { showTutorial, closeTutorial, openTutorial: setShowTutorial } = useTutorial('analytics');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
   useEffect(() => {
-    const hasSeen = localStorage.getItem('hasSeenAnalyticsTutorial');
-    if (!hasSeen) {
-      setShowTutorial(true);
-    }
-  }, []);
+    setLoading(true);
+    const qS = query(
+      collection(db, 'students'), 
+      where('classId', '==', classId),
+      where('teacherId', '==', teacherId)
+    );
+    const qA = query(
+      collection(db, 'assessments'), 
+      where('classId', '==', classId),
+      where('teacherId', '==', teacherId)
+    );
+    const qG = query(
+      collection(db, 'grades'), 
+      where('classId', '==', classId),
+      where('teacherId', '==', teacherId)
+    );
 
-  const closeTutorial = () => {
-    setShowTutorial(false);
-    localStorage.setItem('hasSeenAnalyticsTutorial', 'true');
-  };
+    let studentsLoaded = false;
+    let assessmentsLoaded = false;
+    let gradesLoaded = false;
+    let classLoaded = false;
 
-  const fetchData = async () => {
-    try {
-      const qS = query(
-        collection(db, 'students'), 
-        where('classId', '==', classId),
-        where('teacherId', '==', teacherId)
-      );
-      const qA = query(
-        collection(db, 'assessments'), 
-        where('classId', '==', classId),
-        where('teacherId', '==', teacherId)
-      );
-      const qG = query(
-        collection(db, 'grades'), 
-        where('classId', '==', classId),
-        where('teacherId', '==', teacherId)
-      );
-
-      const [snapS, snapA, snapG, snapC] = await Promise.all([
-        getDocs(qS), 
-        getDocs(qA), 
-        getDocs(qG),
-        getDoc(doc(db, 'classes', classId))
-      ]);
-
-      if (snapC.exists()) {
-        setClassName(snapC.data().name);
+    const checkLoading = () => {
+      if (studentsLoaded && assessmentsLoaded && gradesLoaded && classLoaded) {
+        setLoading(false);
       }
+    };
 
-      setStudents(snapS.docs.map(doc => ({ id: doc.id, ...doc.data() } as Student)));
-      setAssessments(snapA.docs.map(doc => ({ id: doc.id, ...doc.data() } as Assessment)));
+    const unsubC = onSnapshot(doc(db, 'classes', classId), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = { id: docSnap.id, ...docSnap.data() } as Class;
+        setClassName(data.name);
+        setClassData(data);
+      }
+      classLoaded = true;
+      checkLoading();
+    }, (error) => handleFirestoreError(error, OperationType.GET, `classes/${classId}`));
 
+    const unsubS = onSnapshot(qS, (snap) => {
+      setStudents(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Student)));
+      studentsLoaded = true;
+      checkLoading();
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'analytics_data'));
+
+    const unsubA = onSnapshot(qA, (snap) => {
+      setAssessments(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Assessment)));
+      assessmentsLoaded = true;
+      checkLoading();
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'analytics_data'));
+
+    const unsubG = onSnapshot(qG, (snap) => {
       const gradeMap: Record<string, number> = {};
-      snapG.docs.forEach(doc => {
+      snap.docs.forEach(doc => {
         const data = doc.data() as Grade;
         gradeMap[`${data.studentId}_${data.assessmentId}`] = data.score;
       });
       setGrades(gradeMap);
-    } catch (error) {
-       handleFirestoreError(error, OperationType.LIST, 'analytics_data');
-    } finally {
-      setLoading(false);
-    }
-  };
+      gradesLoaded = true;
+      checkLoading();
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'analytics_data'));
 
-  useEffect(() => {
-    fetchData();
+    return () => {
+      unsubC();
+      unsubS();
+      unsubA();
+      unsubG();
+    };
   }, [classId, teacherId]);
 
   const getStudentAnalysis = (studentId: string) => {
@@ -123,16 +137,34 @@ export default function Analytics({ classId, teacherId }: { classId: string, tea
   };
 
   const getStudentAverage = (studentId: string) => {
-    let totalWeight = 0;
-    let earnedWeight = 0;
-    assessments.forEach(a => {
-      const g = grades[`${studentId}_${a.id}`];
-      if (g !== undefined) {
-        earnedWeight += g * a.weight;
-        totalWeight += a.weight;
+    const weights = classData?.trimesterWeights || { 1: 33.33, 2: 33.33, 3: 33.34 };
+    let totalContribution = 0;
+    let totalWeightUsed = 0;
+
+    [1, 2, 3].forEach(t => {
+      const trimesterAssessments = assessments.filter(a => a.trimester === t);
+      let tTotalWeight = 0;
+      let tEarnedWeight = 0;
+      
+      trimesterAssessments.forEach(a => {
+        const g = grades[`${studentId}_${a.id}`];
+        if (g !== undefined) {
+          tEarnedWeight += g * a.weight;
+          tTotalWeight += a.weight;
+        }
+      });
+
+      if (tTotalWeight > 0) {
+        const trimesterAvg = tEarnedWeight / tTotalWeight;
+        const trimesterWeight = (weights[t as keyof typeof weights] || 33.33) / 100;
+        totalContribution += trimesterAvg * trimesterWeight;
+        totalWeightUsed += trimesterWeight;
       }
     });
-    return totalWeight === 0 ? 0 : parseFloat((earnedWeight / totalWeight).toFixed(2));
+
+    if (totalWeightUsed === 0) return 0;
+    // Normalize if not all trimesters have grades yet
+    return parseFloat((totalContribution / totalWeightUsed).toFixed(2));
   };
 
   const getDetailedStats = (studentId: string) => {
@@ -335,6 +367,15 @@ export default function Analytics({ classId, teacherId }: { classId: string, tea
                   barSize={Math.max(24, Math.min(40, 100 / chartData.length))}
                   className="cursor-pointer touch-manipulation"
                   onClick={(data) => {
+                    if (!limits.hasIndividualAnalysis) {
+                      toast.info('Mejora tu plan para ver el análisis individual detallado de cada alumno.', {
+                        action: {
+                          label: 'Mejorar',
+                          onClick: () => window.dispatchEvent(new CustomEvent('open-settings'))
+                        }
+                      });
+                      return;
+                    }
                     if (data && data.payload) {
                       setSelectedStudent(data.payload.student);
                     }

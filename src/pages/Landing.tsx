@@ -7,6 +7,7 @@ import { GraduationCap, ShieldCheck, BarChart3, Clock, ArrowRight, Mail, Lock, U
 import { Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
+import Logo from '@/src/components/layout/Logo';
 
 export default function Landing() {
   const { user, signIn, signInWithEmail, signUpWithEmail, loading } = useAuth();
@@ -58,7 +59,7 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-[#F8FAFC]">
+    <div className="min-h-screen flex flex-col md:flex-row bg-background">
       {/* Left Side: Branding & Info */}
       <div className="hidden lg:flex lg:w-1/2 bg-primary p-12 flex-col justify-between relative overflow-hidden">
         <div className="absolute top-0 right-0 w-full h-full opacity-10 pointer-events-none">
@@ -68,10 +69,7 @@ export default function Landing() {
         
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-12">
-            <div className="w-10 h-10 bg-card rounded-xl flex items-center justify-center shadow-xl">
-              <GraduationCap className="w-6 h-6 text-primary" />
-            </div>
-            <span className="text-2xl font-display font-black text-white tracking-tight">EduGrade</span>
+            <Logo variant="inverted" />
           </div>
 
           <motion.div
@@ -93,7 +91,13 @@ export default function Landing() {
                 { icon: ShieldCheck, title: 'Datos Seguros', desc: 'Privacidad garantizada bajo estándares europeos.' },
                 { icon: Clock, title: 'Ahorro de Tiempo', desc: 'Automatiza el pase de lista y el cálculo de notas.' }
               ].map((item, i) => (
-                <div key={i} className="flex gap-4 items-start">
+                <motion.div 
+                  key={i} 
+                  className="flex gap-4 items-start"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.4 + i * 0.1, duration: 0.3 }}
+                >
                   <div className="w-10 h-10 bg-card/10 rounded-lg flex items-center justify-center shrink-0">
                     <item.icon className="w-5 h-5 text-white" />
                   </div>
@@ -101,7 +105,7 @@ export default function Landing() {
                     <h4 className="text-white font-bold">{item.title}</h4>
                     <p className="text-indigo-200 text-sm">{item.desc}</p>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           </motion.div>
@@ -121,10 +125,13 @@ export default function Landing() {
         >
           {/* Mobile Logo */}
           <div className="lg:hidden flex flex-col items-center mb-8">
-            <div className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center shadow-lg mb-4">
-              <GraduationCap className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-3xl font-display font-black text-foreground">EduGrade</h1>
+            <Logo className="scale-125 mb-4" />
+            <h1 className="text-xl font-bold font-display mt-2 text-foreground text-center">
+              La excelencia académica comienza aquí.
+            </h1>
+            <p className="text-muted-foreground text-sm font-medium mt-1 text-center">
+              Gestiona tu aula como un profesional.
+            </p>
           </div>
 
           <div className="bg-card rounded-[2rem] p-8 sm:p-10 shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-border">

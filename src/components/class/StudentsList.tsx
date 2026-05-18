@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { db, handleFirestoreError, OperationType } from '@/src/firebase';
-import { collection, query, where, getDocs, addDoc, serverTimestamp, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, deleteDoc, doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { Student } from '@/src/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -25,13 +25,16 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Plus, Trash2, UserPlus, Mail, Pencil, Fingerprint, Phone, MapPin, Search, HelpCircle, Lightbulb } from 'lucide-react';
 import { toast } from 'sonner';
+import { motion } from 'motion/react';
+
+import { useTutorial } from '@/src/lib/useTutorial';
 
 export default function StudentsList({ classId, teacherId }: { classId: string, teacherId: string }) {
   const [students, setStudents] = useState<Student[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
-  const [showTutorial, setShowTutorial] = useState(false);
+  const { showTutorial, closeTutorial, openTutorial: setShowTutorial } = useTutorial('students');
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ 
@@ -39,41 +42,36 @@ export default function StudentsList({ classId, teacherId }: { classId: string, 
     lastName: '',
     dni: '',
     email: '', 
-    parentEmail: '',
+    parentName: '',
     phone: '',
     address: ''
   });
 
   useEffect(() => {
-    const hasSeen = localStorage.getItem('hasSeenStudentsTutorial');
-    if (!hasSeen) {
-      setShowTutorial(true);
-    }
-  }, []);
-
-  const closeTutorial = () => {
-    setShowTutorial(false);
-    localStorage.setItem('hasSeenStudentsTutorial', 'true');
-  };
-
-  const fetchStudents = async () => {
-    try {
-      const q = query(
-        collection(db, 'students'), 
-        where('classId', '==', classId),
-        where('teacherId', '==', teacherId)
-      );
-      const snap = await getDocs(q);
-      setStudents(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Student)));
-    } catch (error) {
-       handleFirestoreError(error, OperationType.LIST, 'students');
-    } finally {
+    setLoading(true);
+    const q = query(
+      collection(db, 'students'), 
+      where('classId', '==', classId),
+      where('teacherId', '==', teacherId)
+    );
+    
+    const unsubscribe = onSnapshot(q, (snap) => {
+      const fetchedStudents = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Student));
+      // Sort alphabetically by last name, then name
+      fetchedStudents.sort((a, b) => {
+        const lastNameA = (a.lastName || '').toLowerCase();
+        const lastNameB = (b.lastName || '').toLowerCase();
+        if (lastNameA !== lastNameB) return lastNameA.localeCompare(lastNameB);
+        return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+      });
+      setStudents(fetchedStudents);
       setLoading(false);
-    }
-  };
+    }, (error) => {
+       handleFirestoreError(error, OperationType.LIST, 'students');
+       setLoading(false);
+    });
 
-  useEffect(() => {
-    fetchStudents();
+    return () => unsubscribe();
   }, [classId, teacherId]);
 
   const filteredStudents = students.filter(s => 
@@ -101,10 +99,9 @@ export default function StudentsList({ classId, teacherId }: { classId: string, 
         toast.success('Alumno añadido');
       }
 
-      setFormData({ name: '', lastName: '', dni: '', email: '', parentEmail: '', phone: '', address: '' });
+      setFormData({ name: '', lastName: '', dni: '', email: '', parentName: '', phone: '', address: '' });
       setEditingId(null);
       setIsOpen(false);
-      fetchStudents();
     } catch (error) {
       handleFirestoreError(error, editingId ? OperationType.UPDATE : OperationType.CREATE, 'students');
     }
@@ -117,7 +114,7 @@ export default function StudentsList({ classId, teacherId }: { classId: string, 
       lastName: student.lastName || '',
       dni: student.dni || '',
       email: student.email || '',
-      parentEmail: student.parentEmail || '',
+      parentName: student.parentName || '',
       phone: student.phone || '',
       address: student.address || ''
     });
@@ -130,7 +127,6 @@ export default function StudentsList({ classId, teacherId }: { classId: string, 
       await deleteDoc(doc(db, 'students', deleteId));
       toast.success('Alumno eliminado');
       setDeleteId(null);
-      fetchStudents();
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `students/${deleteId}`);
     }
@@ -165,7 +161,7 @@ export default function StudentsList({ classId, teacherId }: { classId: string, 
           setIsOpen(open);
           if (!open) {
             setEditingId(null);
-            setFormData({ name: '', lastName: '', dni: '', email: '', parentEmail: '', phone: '', address: '' });
+            setFormData({ name: '', lastName: '', dni: '', email: '', parentName: '', phone: '', address: '' });
           }
         }}>
           <DialogTrigger 
@@ -176,7 +172,7 @@ export default function StudentsList({ classId, teacherId }: { classId: string, 
                 className="w-full sm:w-auto rounded-xl bg-primary shadow-lg shadow-primary/20"
                 onClick={() => {
                   setEditingId(null);
-                  setFormData({ name: '', lastName: '', dni: '', email: '', parentEmail: '', phone: '', address: '' });
+                  setFormData({ name: '', lastName: '', dni: '', email: '', parentName: '', phone: '', address: '' });
                 }}
               />
             }
@@ -207,8 +203,8 @@ export default function StudentsList({ classId, teacherId }: { classId: string, 
                 <Input value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="estudiante@ejemplo.com" />
               </div>
               <div className="space-y-2 sm:col-span-2">
-                <Label>Email Tutor/Padre (notificaciones)</Label>
-                <Input value={formData.parentEmail} onChange={e => setFormData({...formData, parentEmail: e.target.value})} placeholder="tutor@ejemplo.com" />
+                <Label>Nombre del Tutor / Tutores legales</Label>
+                <Input value={formData.parentName} onChange={e => setFormData({...formData, parentName: e.target.value})} placeholder="Ej: Maria García y Juan Pérez" />
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label>Dirección</Label>
@@ -231,7 +227,7 @@ export default function StudentsList({ classId, teacherId }: { classId: string, 
                 <TableHead className="font-bold text-foreground">DNI</TableHead>
                 <TableHead className="font-bold text-foreground">Teléfono</TableHead>
                 <TableHead className="font-bold text-foreground">Email Alumno</TableHead>
-                <TableHead className="font-bold text-foreground">Tutor/Padre</TableHead>
+                <TableHead className="font-bold text-foreground">Tutor/es Legales</TableHead>
                 <TableHead className="font-bold text-foreground">Dirección</TableHead>
                 <TableHead className="text-right px-4 sm:px-8">Acciones</TableHead>
               </TableRow>
@@ -247,15 +243,21 @@ export default function StudentsList({ classId, teacherId }: { classId: string, 
                     No se encontraron alumnos que coincidan con la búsqueda.
                   </TableCell>
                 </TableRow>
-              ) : filteredStudents.map(student => (
-                <TableRow key={student.id} className="hover:bg-muted/30 transition-colors">
+              ) : filteredStudents.map((student, index) => (
+                <motion.tr 
+                  key={student.id} 
+                  className="hover:bg-muted/30 transition-colors border-b border-border/50"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2, delay: index * 0.03 }}
+                >
                   <TableCell className="px-4 sm:px-8 py-3 sm:py-4 font-semibold text-sm sm:text-base border-l-4 border-transparent hover:border-primary/40 transition-all sticky left-0 bg-card z-10 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover:bg-muted">
                     {student.lastName}, {student.name}
                   </TableCell>
                   <TableCell className="text-muted-foreground font-mono text-[10px] sm:text-xs">{student.dni || '-'}</TableCell>
                   <TableCell className="text-muted-foreground font-mono text-[10px] sm:text-xs">{student.phone || '-'}</TableCell>
                   <TableCell className="text-muted-foreground font-mono text-[10px] sm:text-xs">{student.email || '-'}</TableCell>
-                  <TableCell className="text-muted-foreground font-mono text-[10px] sm:text-xs">{student.parentEmail || '-'}</TableCell>
+                  <TableCell className="text-muted-foreground font-mono text-[10px] sm:text-xs">{student.parentName || '-'}</TableCell>
                   <TableCell className="text-muted-foreground font-mono text-[10px] sm:text-xs">
                     <div className="max-w-[150px] truncate" title={student.address}>
                       {student.address || '-'}
@@ -287,7 +289,7 @@ export default function StudentsList({ classId, teacherId }: { classId: string, 
                       </Button>
                     </div>
                   </TableCell>
-                </TableRow>
+                </motion.tr>
               ))}
             </TableBody>
           </Table>
@@ -330,7 +332,7 @@ export default function StudentsList({ classId, teacherId }: { classId: string, 
                   Añadir Alumno
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Registra nuevos estudiantes. Podrás guardar sus datos de contacto y el correo de los padres o tutores.
+                  Registra nuevos estudiantes. Podrás guardar sus datos de contacto y el nombre de los padres o tutores.
                 </p>
               </div>
               <div className="bg-muted/50 p-4 rounded-xl border border-border">
@@ -349,7 +351,7 @@ export default function StudentsList({ classId, teacherId }: { classId: string, 
               <div>
                 <h4 className="font-bold text-sm mb-1 text-primary">Consejo útil</h4>
                 <div className="text-xs text-muted-foreground space-y-2">
-                  <p>Manten los correos electrónicos actualizados, esto te permitirá usar otras funcionalidades de envíos u hojas de notas con más agilidad.</p>
+                  <p>Mantén los datos de contacto actualizados para tener siempre a mano la información de los tutores legales.</p>
                 </div>
               </div>
             </div>

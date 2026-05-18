@@ -1,8 +1,9 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/src/context/AuthContext';
 import { ThemeProvider } from '@/src/context/ThemeContext';
 import { Toaster } from '@/components/ui/sonner';
+import { AnimatePresence, motion } from 'motion/react';
 import Landing from '@/src/pages/Landing';
 import Dashboard from '@/src/pages/Dashboard';
 import ClassDetail from '@/src/pages/ClassDetail';
@@ -23,28 +24,48 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function PageTransition({ children }: { children: React.ReactNode }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ duration: 0.3 }}
+      className="min-h-screen"
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 function AppContent() {
+  const location = useLocation();
+
   return (
     <>
       <NotificationManager />
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        } />
-        <Route path="/class/:classId" element={
-          <ProtectedRoute>
-            <ClassDetail />
-          </ProtectedRoute>
-        } />
-        <Route path="/reminders" element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        } />
-      </Routes>
+      <AnimatePresence mode="wait">
+        <div key={location.pathname}>
+          <Routes location={location}>
+            <Route path="/" element={<PageTransition><Landing /></PageTransition>} />
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <PageTransition><Dashboard /></PageTransition>
+              </ProtectedRoute>
+            } />
+            <Route path="/class/:classId" element={
+              <ProtectedRoute>
+                <PageTransition><ClassDetail /></PageTransition>
+              </ProtectedRoute>
+            } />
+            <Route path="/reminders" element={
+              <ProtectedRoute>
+                <PageTransition><Reminders /></PageTransition>
+              </ProtectedRoute>
+            } />
+          </Routes>
+        </div>
+      </AnimatePresence>
     </>
   );
 }

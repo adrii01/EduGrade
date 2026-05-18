@@ -11,7 +11,7 @@ import {
   updateProfile
 } from 'firebase/auth';
 import { auth, db } from '@/src/firebase';
-import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, onSnapshot, collection, query, where, getCountFromServer } from 'firebase/firestore';
 
 interface AuthContextType {
   user: User | null;
@@ -32,42 +32,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let unsubscribeProfile: (() => void) | undefined;
+    let globalSyncUnsubs: (() => void)[] = [];
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
         // Ensure teacher record exists
         const teacherRef = doc(db, 'teachers', user.uid);
         try {
-          const teacherDoc = await getDoc(teacherRef);
-          if (!teacherDoc.exists()) {
-            const initialData = {
-              uid: user.uid,
-              email: user.email,
-              name: user.displayName || 'Teacher',
-              createdAt: serverTimestamp(),
-              preferences: {
-                theme: 'light',
-                photoURL: user.photoURL || ''
-              }
-            };
-            await setDoc(teacherRef, initialData);
-            setProfile(initialData);
-          } else {
-            setProfile(teacherDoc.data());
-          }
-
           // Real-time listener for profile updates
-          unsubscribeProfile = onSnapshot(teacherRef, (snapshot) => {
+          unsubscribeProfile = onSnapshot(teacherRef, async (snapshot: any) => {
             if (snapshot.exists()) {
               setProfile(snapshot.data());
+            } else if (!snapshot.metadata.fromCache) {
+                // Check limit before creating
+                try {
+                  const countSnap = await getCountFromServer(collection(db, 'teachers'));
+                  if (countSnap.data().count >= 10) {
+                    alert("¡Gracias por tu interés! Hemos alcanzado el cupo máximo de 10 testers para esta versión beta.");
+                    await signOut(auth);
+                    setLoading(false);
+                    return;
+                  }
+                } catch (e) {
+                  console.error("Error checking beta limit", e);
+                }
+
+                // If it doesn't exist on server, create it
+                const initialData = {
+                  uid: user.uid,
+                  email: user.email,
+                  name: user.displayName || 'Teacher',
+                  plan: 'premium',
+                  subscriptionStatus: 'active', // For free plan, status is active
+                  createdAt: serverTimestamp(),
+                  preferences: {
+                    theme: 'light',
+                    photoURL: user.photoURL || ''
+                  }
+                };
+                setDoc(teacherRef, initialData).catch(err => console.error("Error creating teacher doc", err));
             }
           });
+
+          // Global Sync for Offline Mode: Priming the cache for all of the user's data
+          const colsToSync = ['classes', 'students', 'attendance', 'assessments', 'grades', 'notifications'];
+          globalSyncUnsubs = colsToSync.map(colName => {
+            const q = query(collection(db, colName), where('teacherId', '==', user.uid));
+            return onSnapshot(q, () => {}); // We only need it to sync the local cache
+          });
         } catch (error) {
-          console.error("Error ensuring teacher doc:", error);
+          console.error("Error setting up teacher sync:", error);
         }
       } else {
         setProfile(null);
         if (unsubscribeProfile) unsubscribeProfile();
+        globalSyncUnsubs.forEach(unsub => unsub());
+        globalSyncUnsubs = [];
       }
       setUser(user);
       setLoading(false);
@@ -76,6 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       unsubscribeAuth();
       if (unsubscribeProfile) unsubscribeProfile();
+      globalSyncUnsubs.forEach(unsub => unsub());
     };
   }, []);
 
