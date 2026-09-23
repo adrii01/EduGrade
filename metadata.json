@@ -2,5 +2,5 @@
   "name": "EduGrade",
   "description": "A professional management platform for teachers to organize classes, track student grades and attendance, visualize performance charts, and facilitate parent communication.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

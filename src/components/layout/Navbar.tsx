@@ -4,11 +4,11 @@ import { useAuth } from '@/src/context/AuthContext';
 import { db } from '@/src/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { LogOut, LayoutDashboard, Bell, GraduationCap, Settings, User as UserIcon, CreditCard } from 'lucide-react';
+import { LogOut, LayoutDashboard, Bell, Settings, User as UserIcon, Sun, Moon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import UserSettings from './UserSettings';
-import SubscriptionPlans from './SubscriptionPlans';
+import { useTheme } from '@/src/context/ThemeContext';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -19,24 +19,17 @@ import {
   DropdownMenuGroup
 } from '@/components/ui/dropdown-menu';
 import Logo from './Logo';
-import { usePlan } from '@/src/lib/usePlan';
 
 export default function Navbar() {
   const { user, profile, logout } = useAuth();
-  const { limits } = usePlan();
   const { classId } = useParams();
   const navigate = useNavigate();
+  const { theme, setTheme } = useTheme();
   const [unreadCount, setUnreadCount] = useState(0);
-  const [settingsSection, setSettingsSection] = useState<'profile' | 'billing'>('profile');
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
-    const handleOpenSettings = (e: any) => {
-      if (e.detail?.section === 'subscription') {
-        setSettingsSection('billing');
-      } else {
-        setSettingsSection('profile');
-      }
+    const handleOpenSettings = () => {
       setSettingsOpen(true);
     };
     window.addEventListener('open-settings', handleOpenSettings);
@@ -44,7 +37,7 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.uid) return;
     
     const q = query(
       collection(db, 'notifications'), 
@@ -57,7 +50,7 @@ export default function Navbar() {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user?.uid]);
 
   const handleLogout = async () => {
     await logout();
@@ -106,15 +99,8 @@ export default function Navbar() {
             
             <DropdownMenu>
               <DropdownMenuTrigger className="flex items-center gap-3 hover:bg-muted p-1.5 rounded-2xl transition-all border border-transparent hover:border-border cursor-pointer outline-none">
-                <div className="text-right hidden md:block text-left relative">
-                  <div className="flex items-center justify-end gap-2">
-                    {profile?.plan && profile?.plan !== 'free' && (
-                      <Badge variant="outline" className={`px-1 h-3.5 text-[8px] border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-900/20 font-bold uppercase`}>
-                        {profile?.plan}
-                      </Badge>
-                    )}
-                    <p className="text-xs font-semibold text-foreground">{user.displayName}</p>
-                  </div>
+                <div className="text-right hidden md:block relative">
+                  <p className="text-xs font-semibold text-foreground">{user.displayName}</p>
                   <p className="text-[10px] text-muted-foreground">{user.email}</p>
                 </div>
                 <div className="w-9 h-9 rounded-xl bg-muted border-2 border-border shadow-sm overflow-hidden flex items-center justify-center">
@@ -131,24 +117,27 @@ export default function Navbar() {
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
-                  onClick={() => {
-                    setSettingsSection('profile');
-                    setSettingsOpen(true);
-                  }} 
+                  onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} 
+                  className="rounded-xl gap-2 cursor-pointer flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    {theme === 'dark' ? (
+                      <Sun className="w-4 h-4 text-amber-500" />
+                    ) : (
+                      <Moon className="w-4 h-4 text-indigo-500" />
+                    )}
+                    <span>Modo {theme === 'dark' ? 'Claro' : 'Oscuro'}</span>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] uppercase font-bold py-0.5 px-2 bg-muted text-muted-foreground border-border">
+                    {theme === 'dark' ? 'Oscuro' : 'Claro'}
+                  </Badge>
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setSettingsOpen(true)} 
                   className="rounded-xl gap-2 cursor-pointer"
                 >
                   <Settings className="w-4 h-4" />
-                  Privacidad y Ajustes
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={() => {
-                    setSettingsSection('billing');
-                    setSettingsOpen(true);
-                  }} 
-                  className="rounded-xl gap-2 cursor-pointer text-amber-600 dark:text-amber-400"
-                >
-                  <CreditCard className="w-4 h-4" />
-                  Pagos y Suscripción
+                  Ajustes de Perfil
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="rounded-xl gap-2 text-red-600 focus:text-red-600 cursor-pointer">
@@ -161,7 +150,7 @@ export default function Navbar() {
         )}
       </div>
 
-      <UserSettings open={settingsOpen} onOpenChange={setSettingsOpen} initialSection={settingsSection} />
+      <UserSettings open={settingsOpen} onOpenChange={setSettingsOpen} />
     </nav>
   );
 }

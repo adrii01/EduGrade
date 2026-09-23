@@ -7,15 +7,15 @@ export function useTutorial(tutorialKey: string) {
   const { user, profile } = useAuth();
   const [showTutorial, setShowTutorial] = useState(false);
 
+  const isSeen = !!profile?.preferences?.tutorialsSeen?.[tutorialKey];
+
   useEffect(() => {
     if (!profile) return;
     
-    // Check if tutorial is seen in profile
-    const tutorialsSeen = profile.preferences?.tutorialsSeen || {};
-    if (!tutorialsSeen[tutorialKey]) {
+    if (!isSeen) {
       setShowTutorial(true);
     }
-  }, [profile, tutorialKey]);
+  }, [profile?.uid, isSeen, tutorialKey]);
 
   const closeTutorial = async (arg?: any) => {
     setShowTutorial(false);

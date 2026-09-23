@@ -62,6 +62,11 @@ function GradeInput({
           onSave(val);
         }
       }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.currentTarget.blur();
+        }
+      }}
     />
   );
 }
@@ -682,7 +687,7 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const url = window.URL.createObjectURL(blob);
       const anchor = document.createElement('a');
-      const safeName = studentName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const safeName = studentName.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').replace(/\s+/g, '_');
       anchor.href = url;
       anchor.download = `Reporte_${safeName}_${new Date().getFullYear()}.xlsx`;
       anchor.click();
@@ -802,7 +807,7 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
               <Label className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground font-bold whitespace-nowrap">Ver:</Label>
               {trimester !== 'all' && (
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger className="w-full sm:w-[150px] rounded-full h-8 sm:h-10 text-xs sm:text-sm">
+                  <SelectTrigger className="w-full sm:w-[170px] rounded-full h-9 sm:h-10 text-xs sm:text-sm">
                     <SelectValue>
                       {categoryFilter === 'all' ? 'Todas' : 
                        categoryFilter === 'independent' ? 'Sin categoría' :
@@ -827,7 +832,7 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
                 </Select>
               )}
               <Select value={trimester} onValueChange={(v) => { setTrimester(v); setCategoryFilter('all'); }}>
-                  <SelectTrigger className="w-full sm:w-[150px] rounded-full h-8 sm:h-10 text-xs sm:text-sm">
+                  <SelectTrigger className="w-full sm:w-[170px] rounded-full h-9 sm:h-10 text-xs sm:text-sm">
                       <SelectValue>
                         {trimester === '1' ? '1º Trimestre' :
                          trimester === '2' ? '2º Trimestre' :
@@ -849,7 +854,7 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
             <Table className="min-w-[800px]">
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="px-4 sm:px-8 font-bold border-r w-[130px] sm:w-[250px] sticky left-0 bg-muted z-20 text-xs sm:text-sm shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Alumno</TableHead>
+                  <TableHead className="px-4 sm:px-8 font-bold border-r w-[180px] sm:w-[250px] sticky left-0 bg-muted z-20 text-xs sm:text-sm shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Alumno</TableHead>
                   {trimester === 'all' ? (
                     <>
                       <TableHead className="text-center font-bold">1º Trim</TableHead>
@@ -882,7 +887,7 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
                             </div>
                             
                             <div className="flex flex-col">
-                              <span className={`text-[11px] font-bold leading-none tracking-tight break-words max-w-[120px] ${a.isCategory ? theme.text : 'text-foreground'}`}>
+                              <span className={`text-xs font-bold leading-snug tracking-tight break-words max-w-[130px] ${a.isCategory ? theme.text : 'text-foreground'}`}>
                                 {a.title}
                               </span>
                               {isSub && (
@@ -926,7 +931,7 @@ export default function Gradebook({ classId, teacherId }: { classId: string, tea
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.2, delay: index * 0.03 }}
                   >
-                    <TableCell className="px-4 sm:px-8 font-medium border-r sticky left-0 bg-card group-hover:bg-muted z-10 text-xs sm:text-sm max-w-[130px] sm:max-w-none truncate shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                    <TableCell className="px-4 sm:px-8 font-medium border-r sticky left-0 bg-card group-hover:bg-muted z-10 text-xs sm:text-sm w-[180px] sm:w-[250px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                       <div className="flex items-center gap-3">
                         <Button
                           variant="ghost"

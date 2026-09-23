@@ -22,13 +22,11 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { usePlan } from '@/src/lib/usePlan';
 import { useTutorial } from '@/src/lib/useTutorial';
 import { StaggerContainer, StaggerItem } from '@/src/components/layout/FadeIn';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { limits, plan } = usePlan();
   const [classes, setClasses] = useState<Class[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -43,7 +41,7 @@ export default function Dashboard() {
   const [editWeights, setEditWeights] = useState<Record<number, number>>({ 1: 33.33, 2: 33.33, 3: 33.34 });
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.uid) return;
     setLoading(true);
     const q = query(collection(db, 'classes'), where('teacherId', '==', user.uid));
     
@@ -57,7 +55,7 @@ export default function Dashboard() {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user?.uid]);
 
   const handleEditSubmit = async () => {
     if (!editId || !editClassName || !editSubject) {
@@ -85,11 +83,6 @@ export default function Dashboard() {
   };
 
   const handleAddClass = async () => {
-    if (classes.length >= limits.classLimit) {
-      toast.error(`Has alcanzado el límite de ${limits.classLimit} clases en tu plan ${plan}. Mejora tu plan para añadir más.`);
-      setIsAddDialogOpen(false);
-      return;
-    }
     if (!newClassName || !newSubject || !user) {
       toast.error('Por favor rellena todos los campos');
       return;
@@ -142,7 +135,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-2">
               <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground tracking-tight">Tus Clases</h1>
               <Badge variant="outline" className="h-6 rounded-full border-border bg-muted/40 font-mono text-[10px] text-muted-foreground">
-                {classes.length} / {limits.classLimit === Infinity ? '∞' : limits.classLimit}
+                {classes.length} {classes.length === 1 ? 'clase' : 'clases'}
               </Badge>
               <Button
                 variant="ghost" 
@@ -184,8 +177,11 @@ export default function Dashboard() {
                         <Input 
                           id={`new-t${t}`}
                           type="number" 
-                          value={newWeights[t]} 
-                          onChange={(e) => setNewWeights(prev => ({ ...prev, [t]: parseFloat(e.target.value) }))}
+                          value={newWeights[t] ?? ''} 
+                          onChange={(e) => {
+                            const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                            setNewWeights(prev => ({ ...prev, [t]: isNaN(val) ? 0 : val }));
+                          }}
                           className="bg-background/50 border-border rounded-xl h-9 text-xs" 
                         />
                       </div>
@@ -316,8 +312,11 @@ export default function Dashboard() {
                     <Input 
                       id={`edit-t${t}`}
                       type="number" 
-                      value={editWeights[t] || 0} 
-                      onChange={(e) => setEditWeights(prev => ({ ...prev, [t]: parseFloat(e.target.value) }))}
+                      value={editWeights[t] ?? ''} 
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                        setEditWeights(prev => ({ ...prev, [t]: isNaN(val) ? 0 : val }));
+                      }}
                       className="bg-background/50 border-border rounded-xl h-9 text-xs" 
                     />
                   </div>

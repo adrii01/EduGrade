@@ -16,14 +16,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { profile } = useAuth();
   const [theme, setThemeState] = useState<AppTheme>('light');
 
+  const themePref = profile?.preferences?.theme;
+
   useEffect(() => {
-    if (profile?.preferences?.theme) {
-      setThemeState(profile.preferences.theme as AppTheme);
-    } else {
-      // Default to light mode
-      setThemeState('light');
-    }
-  }, [profile]);
+    const targetTheme = (themePref as AppTheme) || 'light';
+    setThemeState(prev => (prev === targetTheme ? prev : targetTheme));
+  }, [themePref]);
 
   useEffect(() => {
     const root = document.documentElement;

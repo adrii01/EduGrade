@@ -6,7 +6,7 @@ import { doc, getDoc, onSnapshot, collection, query, where, getDocs } from 'fire
 import { Class } from '@/src/types';
 import Navbar from '@/src/components/layout/Navbar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, ClipboardList, PenTool, BarChart2 } from 'lucide-react';
+import { Users, ClipboardList, PenTool, BarChart2, TrendingUp } from 'lucide-react';
 import { StaggerContainer, StaggerItem } from '@/src/components/layout/FadeIn';
 
 // Sub-components
@@ -15,13 +15,10 @@ import AttendanceTracker from '@/src/components/class/AttendanceTracker';
 import AssessmentManager from '@/src/components/class/AssessmentManager';
 import Gradebook from '@/src/components/class/Gradebook';
 import Analytics from '@/src/components/class/Analytics';
-import { usePlan } from '@/src/lib/usePlan';
-import PlanLocked from '@/src/components/layout/PlanLocked';
 
 export default function ClassDetail() {
   const { classId } = useParams();
   const { user } = useAuth();
-  const { limits } = usePlan();
   const [searchParams, setSearchParams] = useSearchParams();
   const [classData, setClassData] = useState<Class | null>(null);
   const [loading, setLoading] = useState(true);
@@ -30,7 +27,7 @@ export default function ClassDetail() {
   const currentTab = searchParams.get('tab') || 'students';
 
   useEffect(() => {
-    if (!classId || !user) return;
+    if (!classId || !user?.uid) return;
     setLoading(true);
     const docRef = doc(db, 'classes', classId);
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
@@ -51,7 +48,7 @@ export default function ClassDetail() {
     });
 
     return () => unsubscribe();
-  }, [classId, user]);
+  }, [classId, user?.uid, navigate]);
 
   if (loading) return null;
   if (!classData) return <div>No encontrada</div>;
@@ -90,10 +87,10 @@ export default function ClassDetail() {
                   <PenTool className="w-4 h-4" /> Evaluaciones
                 </TabsTrigger>
                 <TabsTrigger value="grades" className="rounded-xl px-6 gap-2 transition-all duration-300 active:scale-95 hover:scale-[1.02] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  <BarChart2 className="w-4 h-4" /> Calificaciones
+                  <BarChart2 className="w-4 h-4" /> Notas
                 </TabsTrigger>
                 <TabsTrigger value="analytics" className="rounded-xl px-6 gap-2 transition-all duration-300 active:scale-95 hover:scale-[1.02] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  <BarChart2 className="w-4 h-4" /> Análisis
+                  <TrendingUp className="w-4 h-4" /> Analíticas
                 </TabsTrigger>
               </TabsList>
             </StaggerItem>
@@ -116,15 +113,7 @@ export default function ClassDetail() {
               </TabsContent>
 
               <TabsContent value="analytics">
-                {limits.hasGlobalAnalysis ? (
-                  <Analytics classId={classData.id} teacherId={user!.uid} />
-                ) : (
-                  <PlanLocked 
-                    title="Análisis No Disponible" 
-                    description="La sección de análisis avanzado y visualización de datos está disponible exclusivamente en los planes Profesional y Premium."
-                    feature="Análisis"
-                  />
-                )}
+                <Analytics classId={classData.id} teacherId={user!.uid} />
               </TabsContent>
             </StaggerItem>
           </Tabs>

@@ -29,12 +29,10 @@ service cloud.firestore {
 
     // --- Validation Blueprints ---
     function isValidTeacher(data) {
-      return data.keys().hasAll(['uid', 'email', 'name', 'plan', 'subscriptionStatus', 'createdAt']) &&
+      return data.keys().hasAll(['uid', 'email', 'name', 'createdAt']) &&
              data.uid == request.auth.uid &&
              data.email is string &&
              data.name is string && data.name.size() <= 100 &&
-             data.plan in ['free', 'pro', 'premium'] &&
-             data.subscriptionStatus is string &&
              data.createdAt == request.time &&
              (data.get('preferences', null) == null || data.preferences is map);
     }
@@ -113,11 +111,11 @@ service cloud.firestore {
                       (incoming().diff(existing()).affectedKeys().hasOnly(['name']) && 
                        incoming().name is string && incoming().name.size() <= 100) ||
                       (incoming().diff(existing()).affectedKeys().hasOnly(['preferences']) &&
-                       incoming().preferences is map)
+                       incoming().preferences is map) ||
+                      (incoming().diff(existing()).affectedKeys().hasOnly(['sessionId']) &&
+                       (incoming().sessionId is string || incoming().sessionId == null))
                     ) &&
                     incoming().email == existing().email &&
-                    incoming().plan == existing().plan &&
-                    incoming().subscriptionStatus == existing().subscriptionStatus &&
                     incoming().createdAt == existing().createdAt;
     }
 

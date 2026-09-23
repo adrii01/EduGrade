@@ -8,9 +8,11 @@
         "uid": { "type": "string" },
         "email": { "type": "string" },
         "name": { "type": "string" },
-        "plan": { "type": "string", "enum": ["free", "pro", "premium"], "description": "Subscription plan" },
-        "subscriptionId": { "type": "string" },
-        "subscriptionStatus": { "type": "string" },
+        "licenseActive": { "type": "boolean" },
+        "licenseKey": { "type": "string" },
+        "licenseType": { "type": "string" },
+        "activeSessionToken": { "type": "string" },
+        "activeDeviceId": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "email", "name"]

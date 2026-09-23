@@ -3,7 +3,7 @@ import { useAuth } from '@/src/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { GraduationCap, ShieldCheck, BarChart3, Clock, ArrowRight, Mail, Lock, User, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, BarChart3, Clock, ArrowRight, Mail, Lock, User, Sparkles } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -11,48 +11,69 @@ import Logo from '@/src/components/layout/Logo';
 
 export default function Landing() {
   const { user, signIn, signInWithEmail, signUpWithEmail, loading } = useAuth();
-  const [mode, setMode] = useState<'login' | 'register' | 'verify'>('login');
+  const [isRegister, setIsRegister] = useState(false);
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  React.useEffect(() => {
-    if (user && !user.emailVerified && user.providerData.some(p => p.providerId === 'password')) {
-      if (mode !== 'verify') setMode('verify');
-    }
-  }, [user, mode]);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
 
   if (loading) return null;
   
-  // If user is authenticated and verified (or google user), redirect
-  if (user && (user.emailVerified || user.providerData.every(p => p.providerId !== 'password'))) {
+  // Redirect authenticated users directly to dashboard
+  if (user) {
     return <Navigate to="/dashboard" />;
   }
 
   const handleGoogleSignIn = async () => {
-    setIsSubmitting(true);
+    setIsGoogleSubmitting(true);
     try {
       await signIn();
     } catch (error: any) {
-      toast.error('Error al iniciar sesión con Google: ' + error.message);
+      if (error.code !== 'auth/popup-closed-by-user') {
+        toast.error(error.message || 'Error al iniciar sesión con Google.');
+      }
     } finally {
-      setIsSubmitting(false);
+      setIsGoogleSubmitting(false);
     }
   };
 
-  const handleEmailAuth = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email || !password) {
+      toast.error('Por favor, completa todos los campos.');
+      return;
+    }
+
+    if (isRegister && !name.trim()) {
+      toast.error('Por favor, introduce tu nombre.');
+      return;
+    }
+
+    if (password.length < 6) {
+      toast.error('La contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      if (mode === 'login') {
-        await signInWithEmail(email, password);
+      if (isRegister) {
+        await signUpWithEmail(email, password, name.trim());
+        toast.success('¡Cuenta creada correctamente! Bienvenido a EduGrade.');
       } else {
-        await signUpWithEmail(email, password, name);
-        setMode('verify');
+        await signInWithEmail(email, password);
+        toast.success('¡Bienvenido de nuevo!');
       }
     } catch (error: any) {
-      toast.error(error.message || 'Error en la autenticación');
+      let msg = error.message;
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        msg = 'Credenciales incorrectas. Comprueba tu correo y contraseña.';
+      } else if (error.code === 'auth/email-already-in-use') {
+        msg = 'Este correo electrónico ya está registrado. Prueba a iniciar sesión.';
+      } else if (error.code === 'auth/weak-password') {
+        msg = 'La contraseña es demasiado débil (mínimo 6 caracteres).';
+      }
+      toast.error(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -82,14 +103,14 @@ export default function Landing() {
               La excelencia académica comienza con una gran gestión.
             </h2>
             <p className="text-indigo-100 text-lg font-medium leading-relaxed mb-12">
-              Únete a miles de educadores que han transformado su aula con herramientas de análisis en tiempo real y comunicación simplificada.
+              Únete a educadores que han transformado su aula con herramientas de análisis en tiempo real, cuadernos digitales y comunicación fluida.
             </p>
 
             <div className="space-y-6">
               {[
                 { icon: BarChart3, title: 'Análisis Visual', desc: 'Gráficos de rendimiento por alumno y clase.' },
                 { icon: ShieldCheck, title: 'Datos Seguros', desc: 'Privacidad garantizada bajo estándares europeos.' },
-                { icon: Clock, title: 'Ahorro de Tiempo', desc: 'Automatiza el pase de lista y el cálculo de notas.' }
+                { icon: Clock, title: 'Ahorro de Tiempo', desc: 'Automatiza el pase de lista y el cálculo de medias ponderadas.' }
               ].map((item, i) => (
                 <motion.div 
                   key={i} 
@@ -116,7 +137,7 @@ export default function Landing() {
         </div>
       </div>
 
-      {/* Right Side: Login Form */}
+      {/* Right Side: Login / Register Form */}
       <div className="flex-1 flex items-center justify-center p-6 sm:p-12">
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
@@ -135,164 +156,137 @@ export default function Landing() {
           </div>
 
           <div className="bg-card rounded-[2rem] p-8 sm:p-10 shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-border">
-            <AnimatePresence mode="wait">
-              {mode === 'verify' ? (
-                <motion.div
-                  key="verify"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="text-center"
-                >
-                  <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <CheckCircle2 className="w-10 h-10 text-green-500" />
-                  </div>
-                  <h2 className="text-2xl font-bold text-foreground mb-2">Verifica tu correo</h2>
-                  <p className="text-muted-foreground mb-8 text-sm">Hemos enviado un enlace a <span className="font-bold text-foreground">{email}</span>. Por favor, confírmalo para acceder a EduGrade.</p>
-                  
-                  <div className="space-y-3">
-                    <Button 
-                      className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90"
-                      onClick={async () => {
-                        setIsSubmitting(true);
-                        try {
-                          await user?.reload();
-                          if (user?.emailVerified) {
-                            toast.success('¡Verificado correctamente!');
-                          } else {
-                            toast.error('El correo aún no ha sido verificado.');
-                          }
-                        } catch (err) {
-                          toast.error('Error al comprobar verificación');
-                        } finally {
-                          setIsSubmitting(false);
-                        }
-                      }}
-                      disabled={isSubmitting}
-                    >
-                      {isSubmitting ? 'Comprobando...' : 'Ya he verificado'}
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      className="w-full h-12 rounded-xl text-muted-foreground"
-                      onClick={() => setMode('login')}
-                    >
-                      Volver al inicio de sesión
-                    </Button>
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key={mode}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                >
-                  <div className="mb-8">
-                    <h2 className="text-2xl font-bold text-foreground">
-                      {mode === 'login' ? 'Bienvenido de nuevo' : 'Crea tu cuenta'}
-                    </h2>
-                    <p className="text-muted-foreground mt-1 text-sm">
-                      {mode === 'login' ? 'Accede a tu panel docente profesional' : 'Comienza a organizar tus cursos hoy'}
-                    </p>
-                  </div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-foreground font-display">
+                {isRegister ? 'Crear Cuenta Docente' : 'Bienvenido de nuevo'}
+              </h2>
+              <p className="text-muted-foreground mt-1 text-sm">
+                {isRegister 
+                  ? 'Regístrate para empezar a organizar tus clases' 
+                  : 'Introduce tus credenciales para acceder a tu aula'
+                }
+              </p>
+            </div>
 
-                  <form onSubmit={handleEmailAuth} className="space-y-4">
-                    {mode === 'register' && (
-                      <div className="space-y-1.5">
-                        <Label htmlFor="name">Nombre Completo</Label>
-                        <div className="relative">
-                          <User className="absolute left-3.5 top-3.5 w-4 h-4 text-muted-foreground" />
-                          <Input 
-                            id="name" 
-                            placeholder="Ej. Prof. María García"
-                            className="pl-10 h-12 rounded-xl bg-muted/50 border-border focus:bg-card transition-all shadow-none"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            required
-                          />
-                        </div>
-                      </div>
-                    )}
-                    
-                    <div className="space-y-1.5">
-                      <Label htmlFor="email">Correo Electrónico</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-muted-foreground" />
-                        <Input 
-                          id="email" 
-                          type="email" 
-                          placeholder="tu@colegio.com"
-                          className="pl-10 h-12 rounded-xl bg-muted/50 border-border focus:bg-card transition-all shadow-none"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          required
-                        />
-                      </div>
-                    </div>
+            {/* Google Sign-in Button */}
+            <Button 
+              variant="outline" 
+              className="w-full h-12 rounded-xl border-border flex gap-3 bg-card hover:bg-muted/50 font-bold transition-all shadow-sm"
+              onClick={handleGoogleSignIn}
+              type="button"
+              disabled={isGoogleSubmitting || isSubmitting}
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24">
+                <path
+                  fill="#4285F4"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                />
+              </svg>
+              {isGoogleSubmitting ? 'Conectando...' : 'Continuar con Google'}
+            </Button>
 
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between items-center">
-                        <Label htmlFor="password">Contraseña</Label>
-                        {mode === 'login' && <button type="button" className="text-[11px] font-bold text-primary hover:underline uppercase tracking-tighter">¿Olvidaste la clave?</button>}
-                      </div>
-                      <div className="relative">
-                        <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-muted-foreground" />
-                        <Input 
-                          id="password" 
-                          type="password" 
-                          placeholder="••••••••"
-                          className="pl-10 h-12 rounded-xl bg-muted/50 border-border focus:bg-card transition-all shadow-none"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          required
-                        />
-                      </div>
-                    </div>
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-border"></div>
+              </div>
+              <div className="relative flex justify-center text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                <span className="bg-card px-4">O con correo electrónico</span>
+              </div>
+            </div>
 
-                    <Button 
-                      type="submit" 
-                      className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold transition-all shadow-lg shadow-primary/10 mt-2"
-                      disabled={isSubmitting}
-                    >
-                      {isSubmitting ? 'Procesando...' : (mode === 'login' ? 'Iniciar Sesión' : 'Continuar al registro')}
-                      {!isSubmitting && <ArrowRight className="w-4 h-4 ml-2" />}
-                    </Button>
-                  </form>
-
-
-                  <div className="relative my-8">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-border"></div>
-                    </div>
-                    <div className="relative flex justify-center text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                      <span className="bg-card px-4">O accede con</span>
-                    </div>
-                  </div>
-
-                  <Button 
-                    variant="outline" 
-                    className="w-full h-12 rounded-xl border-border flex gap-3 hover:bg-muted font-bold transition-all"
-                    onClick={handleGoogleSignIn}
-                    disabled={isSubmitting}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <AnimatePresence mode="wait">
+                {isRegister && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="space-y-1.5 overflow-hidden"
                   >
-                    <img src="https://www.google.com/favicon.ico" className="w-4 h-4" alt="Google" referrerPolicy="no-referrer" />
-                    {isSubmitting && mode === 'login' ? 'Conectando...' : 'Cuenta de Google'}
-                  </Button>
+                    <Label htmlFor="name">Nombre Completo</Label>
+                    <div className="relative">
+                      <User className="absolute left-3.5 top-3.5 w-4 h-4 text-muted-foreground" />
+                      <Input 
+                        id="name" 
+                        type="text" 
+                        placeholder="Ej. Carmen García"
+                        className="pl-10 h-12 rounded-xl bg-muted/50 border-border focus:bg-card transition-all shadow-none"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        required={isRegister}
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-                  <p className="mt-8 text-center text-muted-foreground text-sm">
-                    {mode === 'login' ? '¿Aún no tienes cuenta docente?' : '¿Ya formas parte de la red?'} {' '}
-                    <button 
-                      type="button"
-                      onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-                      className="text-primary font-bold hover:underline"
-                    >
-                      {mode === 'login' ? 'Crea una ahora' : 'Acceder aquí'}
-                    </button>
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
+              <div className="space-y-1.5">
+                <Label htmlFor="email">Correo Electrónico</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-muted-foreground" />
+                  <Input 
+                    id="email" 
+                    type="email" 
+                    placeholder="profesor@colegio.es"
+                    className="pl-10 h-12 rounded-xl bg-muted/50 border-border focus:bg-card transition-all shadow-none"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="password">Contraseña</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-muted-foreground" />
+                  <Input 
+                    id="password" 
+                    type="password" 
+                    placeholder="••••••••"
+                    className="pl-10 h-12 rounded-xl bg-muted/50 border-border focus:bg-card transition-all shadow-none"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                </div>
+              </div>
+
+              <Button 
+                type="submit" 
+                className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold transition-all shadow-lg shadow-primary/10 mt-2"
+                disabled={isSubmitting || isGoogleSubmitting}
+              >
+                {isSubmitting ? 'Procesando...' : isRegister ? 'Crear Cuenta' : 'Iniciar Sesión'}
+                {!isSubmitting && <ArrowRight className="w-4 h-4 ml-2" />}
+              </Button>
+            </form>
+
+            <div className="mt-6 text-center">
+              <button
+                type="button"
+                onClick={() => setIsRegister(!isRegister)}
+                className="text-xs text-muted-foreground hover:text-primary transition-colors font-medium"
+              >
+                {isRegister 
+                  ? '¿Ya tienes cuenta? Inicia sesión aquí' 
+                  : '¿No tienes cuenta? Regístrate gratis'
+                }
+              </button>
+            </div>
           </div>
 
           <div className="mt-8 text-center px-4">

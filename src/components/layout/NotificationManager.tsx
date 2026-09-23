@@ -19,7 +19,7 @@ export default function NotificationManager() {
   };
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.uid) return;
     
     let unsubscribe: () => void;
     
@@ -82,7 +82,7 @@ export default function NotificationManager() {
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [user]);
+  }, [user?.uid]);
 
   const triggerBrowserNotification = (title: string, body: string) => {
     if ('Notification' in window && Notification.permission === 'granted') {

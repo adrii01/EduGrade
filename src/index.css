@@ -68,10 +68,16 @@
     @apply border-border;
   }
   body {
-    @apply text-foreground bg-fixed transition-colors duration-500;
+    font-family: var(--font-sans);
+    @apply text-foreground bg-fixed transition-colors duration-500 antialiased;
     background-image: linear-gradient(to bottom right, var(--bg-gradient-start), var(--bg-gradient-mid), var(--bg-gradient-end));
     min-height: 100vh;
     font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  button, input, select, textarea {
+    font-family: inherit;
   }
 }
 

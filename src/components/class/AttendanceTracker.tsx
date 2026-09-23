@@ -56,9 +56,10 @@ export default function AttendanceTracker({ classId, teacherId }: { classId: str
     return () => unsubS();
   }, [classId, teacherId]);
 
+  const dateStr = format(date, 'yyyy-MM-dd');
+
   useEffect(() => {
     setLoading(true);
-    const dateStr = format(date, 'yyyy-MM-dd');
     const qA = query(
       collection(db, 'attendance'), 
       where('classId', '==', classId),
@@ -79,7 +80,7 @@ export default function AttendanceTracker({ classId, teacherId }: { classId: str
     });
 
     return () => unsubA();
-  }, [classId, teacherId, date]);
+  }, [classId, teacherId, dateStr]);
 
   const filteredStudents = students.filter(s => 
     `${s.name} ${s.lastName}`.toLowerCase().includes(searchQuery.toLowerCase())

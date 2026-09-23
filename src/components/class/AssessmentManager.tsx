@@ -139,14 +139,25 @@ export default function AssessmentManager({ classId, teacherId }: { classId: str
 
   const handleEdit = (assessment: Assessment) => {
     setEditingId(assessment.id);
+    let formattedDate = format(new Date(), 'yyyy-MM-dd');
+    if (assessment.date) {
+      if (typeof (assessment.date as any)?.toDate === 'function') {
+        formattedDate = format((assessment.date as any).toDate(), 'yyyy-MM-dd');
+      } else if (assessment.date instanceof Date) {
+        formattedDate = format(assessment.date, 'yyyy-MM-dd');
+      } else if (typeof assessment.date === 'string' && assessment.date.includes('-')) {
+        formattedDate = assessment.date.substring(0, 10);
+      } else if ((assessment.date as any)?.seconds) {
+        formattedDate = format(new Date((assessment.date as any).seconds * 1000), 'yyyy-MM-dd');
+      }
+    }
+
     setFormData({
       title: assessment.title,
       type: assessment.type,
       weight: Math.round(assessment.weight * 100).toString(),
       trimester: assessment.trimester.toString(),
-      date: assessment.date instanceof Timestamp 
-        ? format(assessment.date.toDate(), 'yyyy-MM-dd') 
-        : format(new Date(), 'yyyy-MM-dd'),
+      date: formattedDate,
       isCategory: assessment.isCategory,
       parentId: assessment.parentId || 'none'
     });
@@ -193,7 +204,7 @@ export default function AssessmentManager({ classId, teacherId }: { classId: str
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-1">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl sm:text-2xl font-display font-bold font-black text-foreground tracking-tight">Plan de Evaluación</h2>
+            <h2 className="text-xl sm:text-2xl font-display font-bold text-foreground tracking-tight">Plan de Evaluaciones</h2>
             <Button
               variant="ghost"
               size="icon"
@@ -207,7 +218,7 @@ export default function AssessmentManager({ classId, teacherId }: { classId: str
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-full sm:w-[200px] h-9">
+            <SelectTrigger className="w-full sm:w-[220px] h-10">
               <SelectValue>
                 {categoryFilter === 'all' ? 'Todas' : 
                  categoryFilter === 'tri_1' ? '1º Trimestre' :
@@ -306,8 +317,12 @@ export default function AssessmentManager({ classId, teacherId }: { classId: str
                 <div className="space-y-2">
                   <Label>Agrupar dentro de (Opcional)</Label>
                   <Select value={formData.parentId} onValueChange={(v) => setFormData({...formData, parentId: v})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Ninguna (Prueba independiente)" />
+                    <SelectTrigger className="w-full h-10">
+                      <SelectValue placeholder="Ninguna (Prueba independiente)">
+                        {(!formData.parentId || formData.parentId === 'none') 
+                          ? 'Sin agrupar (Prueba independiente)' 
+                          : (assessments.find(a => a.id === formData.parentId)?.title || 'Sin agrupar (Prueba independiente)')}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Sin agrupar (Prueba independiente)</SelectItem>
@@ -340,8 +355,10 @@ export default function AssessmentManager({ classId, teacherId }: { classId: str
                 <div className="space-y-2">
                   <Label>Tipo</Label>
                   <Select value={formData.type} onValueChange={(v: any) => setFormData({...formData, type: v})}>
-                    <SelectTrigger>
-                      <SelectValue />
+                    <SelectTrigger className="w-full h-10">
+                      <SelectValue>
+                        {formData.type === 'exam' ? 'Examen' : 'Trabajo / Proyecto'}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="exam">Examen</SelectItem>
@@ -358,8 +375,10 @@ export default function AssessmentManager({ classId, teacherId }: { classId: str
                 <div className="space-y-2">
                   <Label>Trimestre</Label>
                   <Select value={formData.trimester} onValueChange={(v: any) => setFormData({...formData, trimester: v})}>
-                    <SelectTrigger>
-                      <SelectValue />
+                    <SelectTrigger className="w-full h-10">
+                      <SelectValue>
+                        {`${formData.trimester}º Trimestre`}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="1">1º Trimestre</SelectItem>

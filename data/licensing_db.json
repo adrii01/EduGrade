@@ -1,0 +1,88 @@
+{
+  "licenses": {
+    "EDUG-MASTER-2026-PROFE": {
+      "key": "EDUG-MASTER-2026-PROFE",
+      "label": "Clave Master Inicial",
+      "type": "lifetime",
+      "claimed": false,
+      "claimedByUid": null,
+      "claimedByEmail": null,
+      "claimedAt": null,
+      "createdAt": "2026-09-18T11:45:48.734Z",
+      "maxDevices": 2
+    },
+    "EDUG-2026-PROF-ALFA": {
+      "key": "EDUG-2026-PROF-ALFA",
+      "label": "Licencia Vitalicia #1",
+      "type": "lifetime",
+      "claimed": false,
+      "claimedByUid": null,
+      "claimedByEmail": null,
+      "claimedAt": null,
+      "createdAt": "2026-09-18T11:45:48.734Z",
+      "maxDevices": 2
+    },
+    "EDUG-2026-PROF-BETA": {
+      "key": "EDUG-2026-PROF-BETA",
+      "label": "Licencia Vitalicia #2",
+      "type": "lifetime",
+      "claimed": false,
+      "claimedByUid": null,
+      "claimedByEmail": null,
+      "claimedAt": null,
+      "createdAt": "2026-09-18T11:45:48.734Z",
+      "maxDevices": 2
+    },
+    "EDUG-DEMO-TEST-KEY1": {
+      "key": "EDUG-DEMO-TEST-KEY1",
+      "label": "Licencia Demo de Prueba",
+      "type": "lifetime",
+      "claimed": true,
+      "claimedByUid": "teacher_normal_456",
+      "claimedByEmail": "profe@colegio.com",
+      "claimedAt": "2026-09-18T11:45:50.372Z",
+      "createdAt": "2026-09-18T11:45:48.734Z",
+      "maxDevices": 2
+    }
+  },
+  "teachers": {
+    "test_uid_123": {
+      "uid": "test_uid_123",
+      "email": "adriker01@gmail.com",
+      "licenseActive": true,
+      "licenseKey": "EDUG-MASTER-ADMIN",
+      "licenseType": "lifetime",
+      "licensedAt": "2026-09-18T11:45:50.365Z",
+      "activeDevices": [
+        {
+          "id": "dev_1",
+          "name": "Chrome on Linux",
+          "browser": "Chrome",
+          "os": "Linux",
+          "lastActive": "2026-09-18T11:45:50.365Z"
+        }
+      ],
+      "activeSessionToken": "83bb60a0-c0a4-491d-b274-3b87534c3a85",
+      "activeDeviceId": "dev_1"
+    },
+    "teacher_normal_456": {
+      "uid": "teacher_normal_456",
+      "email": "profe@colegio.com",
+      "licenseActive": true,
+      "licenseKey": "EDUG-DEMO-TEST-KEY1",
+      "licenseType": "lifetime",
+      "licensedAt": "2026-09-18T11:45:50.372Z",
+      "activeDevices": [
+        {
+          "id": "dev_2",
+          "name": "Safari on Mac",
+          "browser": "Safari",
+          "os": "MacOS",
+          "lastActive": "2026-09-18T11:45:50.372Z"
+        }
+      ],
+      "activeSessionToken": "4d27ed22-fdf5-4133-a3f9-268c0726bbf3",
+      "activeDeviceId": "dev_2"
+    }
+  }
+}

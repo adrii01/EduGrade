@@ -1,10 +1,53 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
-    <meta charset="UTF-8" />
+    <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>EduGrade | Gestión Docente Profesional</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Outfit:wght@100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet" />
+    <title>EduGrade</title>
+    <meta name="description" content="A professional management platform for teachers to organize classes, track student grades and attendance, visualize performance charts, and facilitate parent communication." />
+    <meta property="og:title" content="EduGrade" />
+    <meta property="og:description" content="A professional management platform for teachers to organize classes, track student grades and attendance, visualize performance charts, and facilitate parent communication." />
+    <script>
+      (function() {
+        try {
+          var originalFetch = window.fetch;
+          var activeFetch = originalFetch;
+          Object.defineProperty(window, 'fetch', {
+            get: function() {
+              return activeFetch;
+            },
+            set: function(val) {
+              activeFetch = val;
+            },
+            configurable: true,
+            enumerable: true
+          });
+        } catch (e) {
+          try {
+            var proto = Object.getPrototypeOf(window) || Window.prototype;
+            var desc = Object.getOwnPropertyDescriptor(proto, 'fetch');
+            if (desc && !desc.set) {
+              Object.defineProperty(proto, 'fetch', {
+                get: function() {
+                  return window._activeFetch || (desc.get ? desc.get.call(this) : originalFetch);
+                },
+                set: function(val) {
+                  window._activeFetch = val;
+                },
+                configurable: true,
+                enumerable: true
+              });
+            }
+          } catch (e2) {
+            // Ignore
+          }
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

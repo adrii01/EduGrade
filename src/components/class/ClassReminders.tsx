@@ -243,7 +243,7 @@ export default function ClassReminders({ classId, teacherId }: { classId: string
               <div className="bg-muted/50 p-4 rounded-xl border border-border">
                 <div className="flex items-center gap-2 mb-2 font-bold text-base">
                   <BellRing className="w-5 h-5 text-blue-500" />
-                  Crear Avisos
+                  Crear Recordatorios
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Al añadir un recordatorio será visible para padres o en posibles exportaciones de datos de la aplicación.
@@ -255,7 +255,7 @@ export default function ClassReminders({ classId, teacherId }: { classId: string
                   Fechas de Caducidad
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Asigna una fecha a tus avisos. Los recordatorios anteriores seguirán ahí pero se marcarán automáticamente indicando que ya expiraron o pasaron su fecha.
+                  Asigna una fecha a tus recordatorios. Los recordatorios anteriores seguirán ahí pero se marcarán automáticamente indicando que ya expiraron o pasaron su fecha.
                 </p>
               </div>
             </div>

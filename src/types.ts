@@ -1,12 +1,28 @@
+export interface DeviceInfo {
+  id: string;
+  name: string;
+  browser: string;
+  os: string;
+  lastActive: string;
+}
+
 export interface Teacher {
   id: string;
   uid: string;
   email: string;
   name: string;
-  plan?: 'free' | 'pro' | 'premium';
-  subscriptionId?: string;
-  subscriptionStatus?: string;
   createdAt: any;
+  licenseActive?: boolean;
+  licenseKey?: string;
+  licenseType?: 'lifetime' | 'institutional';
+  licensedAt?: any;
+  activeDevices?: DeviceInfo[];
+  activeSessionToken?: string;
+  activeDeviceId?: string;
+  preferences?: {
+    theme?: string;
+    photoURL?: string;
+  };
 }
 
 export interface Class {

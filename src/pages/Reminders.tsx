@@ -60,7 +60,7 @@ export default function Reminders() {
   });
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.uid) return;
     const qN = query(collection(db, 'notifications'), where('teacherId', '==', user.uid));
     const qC = query(collection(db, 'classes'), where('teacherId', '==', user.uid));
 
@@ -80,7 +80,7 @@ export default function Reminders() {
       unsubN();
       unsubC();
     }
-  }, [user]);
+  }, [user?.uid]);
 
   const handleCreate = async () => {
     if (!user || !formData.title || !formData.classId) return toast.error('Rellena los campos obligatorios');
@@ -147,7 +147,7 @@ export default function Reminders() {
         <StaggerItem className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8 sm:mb-10" variant="fadeUp">
           <div className="flex flex-col gap-4 w-full md:w-auto">
             <div>
-              <p className="text-[10px] sm:text-xs text-primary font-bold uppercase tracking-[0.2em] mb-1">Centro de Avisos</p>
+              <p className="text-[10px] sm:text-xs text-primary font-bold uppercase tracking-[0.2em] mb-1">Centro de Recordatorios</p>
               <h1 className="text-3xl sm:text-4xl font-display font-bold text-foreground tracking-tight">Recordatorios</h1>
             </div>
             
@@ -185,12 +185,12 @@ export default function Reminders() {
                     <div className="space-y-2">
                         <Label>Clase asociada</Label>
                         <Select value={formData.classId} onValueChange={(v: any) => setFormData({...formData, classId: v})}>
-                            <SelectTrigger className="bg-card/50 border-border/40 rounded-xl">
+                            <SelectTrigger className="w-full bg-card/50 border-border/40 rounded-xl h-10">
                               <SelectValue>
                                 {classes.find(c => c.id === formData.classId)?.name || 'Selecciona clase...'}
                               </SelectValue>
                             </SelectTrigger>
-                            <SelectContent className="bg-card/90 backdrop-blur-lg border-border/20">
+                            <SelectContent>
                                 {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                             </SelectContent>
                         </Select>

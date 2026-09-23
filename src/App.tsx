@@ -9,9 +9,12 @@ import Dashboard from '@/src/pages/Dashboard';
 import ClassDetail from '@/src/pages/ClassDetail';
 import Reminders from '@/src/pages/Reminders';
 import NotificationManager from '@/src/components/layout/NotificationManager';
+import LicenseActivationGate from '@/src/components/license/LicenseActivationGate';
+import ConcurrentSessionModal from '@/src/components/license/ConcurrentSessionModal';
+import DeviceLimitModal from '@/src/components/license/DeviceLimitModal';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, isLicenseActive } = useAuth();
 
   if (loading) return (
     <div className="h-screen w-full flex items-center justify-center bg-background">
@@ -20,6 +23,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   );
 
   if (!user) return <Navigate to="/" />;
+
+  if (!isLicenseActive) {
+    return <LicenseActivationGate />;
+  }
 
   return <>{children}</>;
 }
@@ -40,10 +47,31 @@ function PageTransition({ children }: { children: React.ReactNode }) {
 
 function AppContent() {
   const location = useLocation();
+  const { 
+    concurrentSessionDetected, 
+    reconnectSession, 
+    logout, 
+    reconnecting,
+    deviceLimitExceeded,
+    limitDevicesList,
+    revokeDevice 
+  } = useAuth();
 
   return (
     <>
       <NotificationManager />
+      <ConcurrentSessionModal
+        open={concurrentSessionDetected}
+        onReconnect={reconnectSession}
+        onLogout={logout}
+        reconnecting={reconnecting}
+      />
+      <DeviceLimitModal
+        open={deviceLimitExceeded}
+        devices={limitDevicesList}
+        onRevokeAndContinue={revokeDevice}
+        onLogout={logout}
+      />
       <AnimatePresence mode="wait">
         <div key={location.pathname}>
           <Routes location={location}>
